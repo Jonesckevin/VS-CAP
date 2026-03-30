@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VS-CAP Documentation — How Data Is Parsed &amp; Normalized</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#1e1e1e;--bg2:#252526;--bg3:#2d2d2d;--text:#d4d4d4;--text2:#969696;--text3:#6a6a6a;
+  --accent:#007acc;--border:#3e3e42;--success:#4ec9b0;--warning:#dcdcaa;--error:#f44747;--info:#569cd6;
+  --font-mono:'Cascadia Code','Fira Code','Consolas',monospace;
+  --font-sans:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+}
+[data-theme="light"]{
+  --bg:#ffffff;--bg2:#f5f5f5;--bg3:#e8e8e8;--text:#1e1e1e;--text2:#616161;--text3:#9e9e9e;
+  --accent:#007acc;--border:#d4d4d4;--success:#16825d;--warning:#795e26;--error:#cd3131;--info:#0451a5;
+}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-sans);background:var(--bg);color:var(--text);font-size:15px;line-height:1.7}
+a{color:var(--info);text-decoration:none}a:hover{text-decoration:underline}
+code{font-family:var(--font-mono);font-size:13px;background:var(--bg3);padding:2px 6px;border-radius:3px}
+pre{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;
+  font-family:var(--font-mono);font-size:13px;line-height:1.5;margin:12px 0}
+pre code{background:none;padding:0}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border)}
+th{background:var(--bg2);font-weight:600;color:var(--text2);font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+tr:hover td{background:var(--bg2)}
+::-webkit-scrollbar{width:8px}::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:4px}
+
+/* Layout */
+.page{display:flex;min-height:100vh}
+nav{width:260px;position:fixed;top:0;left:0;bottom:0;background:var(--bg2);border-right:1px solid var(--border);
+  overflow-y:auto;padding:20px 0;flex-shrink:0;z-index:10}
+nav .brand{padding:0 20px 20px;font-size:20px;font-weight:700;border-bottom:1px solid var(--border);margin-bottom:12px}
+nav .brand span{color:var(--accent)}
+nav a{display:block;padding:7px 20px;color:var(--text2);font-size:13px;transition:all .15s;border-left:3px solid transparent}
+nav a:hover{color:var(--text);background:rgba(255,255,255,.04);text-decoration:none}
+nav a.active{color:var(--accent);border-left-color:var(--accent);background:rgba(0,122,204,.08)}
+nav .nav-section{padding:12px 20px 4px;font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text3);letter-spacing:.8px}
+main{margin-left:260px;max-width:900px;padding:40px 50px 80px}
+h1{font-size:32px;margin-bottom:8px;letter-spacing:-0.5px}
+h2{font-size:22px;margin:48px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border);color:var(--accent)}
+h3{font-size:17px;margin:28px 0 10px;color:var(--success)}
+h4{font-size:15px;margin:20px 0 8px;color:var(--info)}
+p{margin-bottom:12px}
+ul,ol{margin:8px 0 16px;padding-left:28px}
+li{margin-bottom:6px}
+.subtitle{color:var(--text2);font-size:16px;margin-bottom:32px}
+.callout{border-left:4px solid var(--accent);background:var(--bg2);padding:14px 18px;border-radius:0 8px 8px 0;margin:16px 0}
+.callout-warn{border-left-color:var(--warning)}
+.callout-info{border-left-color:var(--info)}
+.callout-success{border-left-color:var(--success)}
+.callout strong{display:block;margin-bottom:4px}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.badge-kind0{background:#264f78;color:#6cb6ff}
+.badge-kind1{background:#1a3a2a;color:var(--success)}
+.badge-kind2{background:#3a3a1a;color:var(--warning)}
+.diagram{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:20px;margin:16px 0;
+  font-family:var(--font-mono);font-size:13px;line-height:1.8;overflow-x:auto}
+pre.mermaid{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:24px 20px;
+  margin:16px 0;text-align:center;overflow-x:auto}
+pre.mermaid svg{max-width:100%;height:auto}
+.theme-toggle{position:fixed;top:12px;right:16px;z-index:20;background:var(--bg2);border:1px solid var(--border);
+  border-radius:20px;padding:6px 14px;cursor:pointer;font-size:13px;color:var(--text2)}
+.theme-toggle:hover{border-color:var(--accent);color:var(--text)}
+
+@media(max-width:768px){
+  nav{display:none}main{margin-left:0;padding:20px}
+}
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" onclick="toggleTheme()">🌙 Theme</button>
+
+<div class="page">
+<nav>
+  <div class="brand">VS-<span>CAP</span> Docs</div>
+  <a href="vs-cap-viewer.html" style="display:block;padding:8px 20px 12px;font-size:13px;border-bottom:1px solid var(--border);margin-bottom:8px">← Back to Viewer</a>
+  <div class="nav-section">Overview</div>
+  <a href="#introduction">Introduction</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#collection">KAPE Collection</a>
+  <div class="nav-section">Data Formats</div>
+  <a href="#workspace-json">workspace.json</a>
+  <a href="#jsonl-sessions">Chat Sessions (JSONL)</a>
+  <a href="#mutation-model">JSONL Mutation Model</a>
+  <a href="#request-structure">Request &amp; Response</a>
+  <a href="#edit-sessions">Edit Sessions</a>
+  <a href="#copilot-artifacts">Copilot Artifacts</a>
+  <a href="#state-vscdb">state.vscdb (SQLite)</a>
+  <a href="#settings">Settings &amp; Profiles</a>
+  <div class="nav-section">Normalization</div>
+  <a href="#normalization">Parsing Pipeline</a>
+  <a href="#user-message-extraction">User Message Extraction</a>
+  <a href="#response-reconstruction">Response Reconstruction</a>
+  <a href="#timestamps">Timestamp Normalization</a>
+  <div class="nav-section">Forensics</div>
+  <a href="#forensic-methodology">Methodology</a>
+  <a href="#integrity">Data Integrity</a>
+  <a href="#export">Export &amp; Reporting</a>
+</nav>
+
+<main>
+
+<!-- ═══════════════════════ INTRODUCTION ═══════════════════════ -->
+<h1 id="introduction">VS-CAP Documentation</h1>
+<p class="subtitle">VSCode Session Chat Acquisition &amp; Parsing — How Data Is Parsed &amp; Normalized</p>
+
+<p><strong>VS-CAP</strong> is a forensic toolkit for collecting and analyzing VS Code workspace data, with a focus on AI/Copilot chat interactions. It consists of three components:</p>
+
+<ol>
+  <li><strong>KAPE Target</strong> (<code>VSCode_WorkspaceStorage.tkape</code>) — Forensically sound collection of VS Code artifacts</li>
+  <li><strong>VS-CAP Viewer</strong> (<code>vs-cap-viewer.html</code>) — Browser-based evidence parser and viewer</li>
+  <li><strong>This Documentation</strong> — Technical reference for data formats and parsing methodology</li>
+</ol>
+
+<div class="callout callout-info">
+  <strong>🔒 Privacy by Design</strong>
+  The VS-CAP Viewer runs entirely in the browser. No data is uploaded to any server. All evidence data is held in JavaScript memory and is completely purged when the page is refreshed or the "Clear Data" button is clicked.
+</div>
+
+<!-- ═══════════════════════ ARCHITECTURE ═══════════════════════ -->
+<h2 id="architecture">Architecture Overview</h2>
+
+<pre class="mermaid">
+flowchart LR
+  A["<b>KAPE / TKAPE</b><br/>Collection<br/><i>workspaceStorage<br/>globalStorage<br/>settings.json</i>"] -->|Collect| B["<b>ZIP / Folder</b><br/>of Artifacts<br/><i>Preserves full<br/>directory tree</i>"]
+  B -->|Load| C["<b>VS-CAP Viewer</b><br/>(Single HTML)"]
+  C --- D["<b>Parsers</b><br/>JSONL Parser<br/>JSON Parser<br/>SQLite Parser<br/>Markdown Renderer<br/>Text Viewer"]
+  C --- E["<b>Output</b><br/>Conversation View<br/>Session Timeline<br/>State Inspector<br/>CSV Export<br/>JSON Export"]
+</pre>
+
+<h3>VS Code Data Location</h3>
+<table>
+  <tr><th>Variant</th><th>Windows Path</th></tr>
+  <tr><td>VS Code Stable</td><td><code>%AppData%\Code\User\</code></td></tr>
+  <tr><td>VS Code Insiders</td><td><code>%AppData%\Code - Insiders\User\</code></td></tr>
+</table>
+
+<!-- ═══════════════════════ COLLECTION ═══════════════════════ -->
+<h2 id="collection">KAPE Collection</h2>
+
+<p>The <code>VSCode_WorkspaceStorage.tkape</code> target collects the following artifacts:</p>
+
+<table>
+  <tr><th>Target</th><th>Path</th><th>Description</th></tr>
+  <tr><td>workspaceStorage</td><td><code>...\User\workspaceStorage\</code></td><td>All workspace-specific data (chat sessions, edit sessions, Copilot artifacts, workspace state databases)</td></tr>
+  <tr><td>globalStorage</td><td><code>...\User\globalStorage\</code></td><td>Global extension data (cross-workspace preferences, extension state)</td></tr>
+  <tr><td>settings.json</td><td><code>...\User\settings.json</code></td><td>User VS Code configuration and preferences</td></tr>
+  <tr><td>profiles</td><td><code>...\User\profiles\</code></td><td>VS Code user profiles (if multiple profiles are configured)</td></tr>
+</table>
+
+<p>The <code>%user%</code> variable ensures collection from all user profiles on the target system. Both VS Code Stable and Insiders paths are included. The <code>RecreateDirectories: true</code> flag preserves the original folder hierarchy in the output.</p>
+
+<div class="callout callout-warn">
+  <strong>⚠️ Collection Note</strong>
+  Run KAPE as SYSTEM (not just Administrator) for the fewest file access errors. Use: <code>PsExec64.exe -s kape.exe [options]</code>
+</div>
+
+<!-- ═══════════════════════ WORKSPACE.JSON ═══════════════════════ -->
+<h2 id="workspace-json">workspace.json — Workspace Identity Mapping</h2>
+
+<p>Each hash-named folder in <code>workspaceStorage/</code> corresponds to a VS Code workspace (folder or project). The <code>workspace.json</code> file inside each hash folder maps the hash to the actual workspace path.</p>
+
+<h4>Structure</h4>
+<pre><code>{
+  "folder": "file:///d%3A/%21projects/my-project"
+}</code></pre>
+
+<h4>Fields</h4>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+  <tr><td><code>folder</code></td><td>String (URI)</td><td>URI-encoded path to the workspace folder. Decode with <code>decodeURIComponent()</code> after stripping the <code>file:///</code> prefix.</td></tr>
+  <tr><td><code>workspace</code></td><td>String (URI)</td><td>Alternative field used for multi-root workspaces (<code>.code-workspace</code> files).</td></tr>
+</table>
+
+<h4>Parsing Logic</h4>
+<pre><code>// VS-CAP decodes the folder URI to a human-readable path:
+const raw = wsJson.folder;   // "file:///d%3A/%21projects/my-project"
+const decoded = decodeURIComponent(raw.replace(/^file:\/\/\//i, ''));
+// Result: "d:/!projects/my-project"
+// Short name (last path segment): "my-project"</code></pre>
+
+<p>The hash folder name itself is an opaque identifier. The <code>workspace.json</code> mapping is the only reliable way to associate a hash with a project.</p>
+
+<!-- ═══════════════════════ JSONL SESSIONS ═══════════════════════ -->
+<h2 id="jsonl-sessions">Chat Sessions — JSONL Format</h2>
+
+<p>Chat sessions are stored in <code>chatSessions/{uuid}.jsonl</code> files using the <strong>JSON Lines</strong> format (one JSON object per line). Each file represents one complete chat conversation with an AI assistant (GitHub Copilot).</p>
+
+<h4>File Location</h4>
+<pre><code>workspaceStorage/{hash}/chatSessions/{session-uuid}.jsonl</code></pre>
+
+<h4>Line Types</h4>
+<p>Each line in the JSONL file is a JSON object with a <code>kind</code> field indicating its type:</p>
+
+<table>
+  <tr><th>Kind</th><th>Name</th><th>Purpose</th></tr>
+  <tr>
+    <td><span class="badge badge-kind0">Kind 0</span></td>
+    <td>Initial State</td>
+    <td>Full snapshot of the session state at time of first save. Contains all metadata, model info, and may include already-completed requests.</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-kind1">Kind 1</span></td>
+    <td>Scalar Mutation</td>
+    <td>Updates a single value at a specified path in the session state. Used for setting titles, updating input text, setting results, etc.</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-kind2">Kind 2</span></td>
+    <td>Array Mutation</td>
+    <td>Replaces an array or array element at a specified path. Used for adding/updating requests and their response arrays.</td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════ MUTATION MODEL ═══════════════════════ -->
+<h2 id="mutation-model">JSONL Mutation Model — State Reconstruction</h2>
+
+<p>VS Code uses an <strong>incremental mutation model</strong> to efficiently serialize chat session state. Rather than saving the full state after every change, it records the initial state (Kind 0) followed by a series of patch operations (Kind 1/2).</p>
+
+<h3>Kind 0 — Initial State</h3>
+<pre><code>{
+  "kind": 0,
+  "v": {
+    "version": 3,
+    "creationDate": 1773609865809,
+    "customTitle": "My Chat Session",
+    "sessionId": "797b631e-e462-4fb9-86ef-1881071066c2",
+    "responderUsername": "GitHub Copilot",
+    "requests": [],
+    "inputState": {
+      "selectedModel": {
+        "identifier": "copilot/claude-opus-4.6",
+        "metadata": { "name": "Claude Opus 4.6", ... }
+      },
+      "mode": { "kind": "agent", "id": "agent" }
+    }
+  }
+}</code></pre>
+
+<p>The <code>v</code> property contains the complete session state object. If the session already had exchanges at save time, the <code>requests</code> array will be pre-populated.</p>
+
+<h3>Kind 1 — Path-Based Mutation</h3>
+<pre><code>// Set the session title:
+{"kind":1,"k":["customTitle"],"v":"Docker Web UI Control Script"}
+
+// Set the user's input text (what they typed):
+{"kind":1,"k":["inputState","inputText"],"v":"Create a PS1 script to manage Docker containers"}
+
+// Set the result of request index 0:
+{"kind":1,"k":["requests",0,"result"],"v":{"timings":{"totalElapsed":85251},...}}</code></pre>
+
+<ul>
+  <li><code>k</code> — Path array. Each element is a key (string) or index (number) to navigate the state object.</li>
+  <li><code>v</code> — New value to set at the specified path.</li>
+</ul>
+
+<h3>Kind 2 — Array Replacement</h3>
+<pre><code>// Replace the entire requests array (new request added):
+{"kind":2,"k":["requests"],"v":[{ "requestId": "request_xxx", "timestamp": 1773609980479, ... }]}
+
+// Replace the response array of request 0 (AI response updated):
+{"kind":2,"k":["requests",0,"response"],"v":[
+  {"kind":"thinking","value":"Let me analyze this..."},
+  {"value":"Here's the solution..."}
+]}</code></pre>
+
+<h3>Reconstruction Algorithm</h3>
+
+<div class="callout callout-success">
+  <strong>How VS-CAP reconstructs the full session state:</strong>
+</div>
+
+<pre><code>function reconstructSession(jsonlText) {
+  const lines = jsonlText.split('\n').filter(l =&gt; l.trim());
+  let state = {};
+
+  for (const line of lines) {
+    const entry = JSON.parse(line);
+
+    if (entry.kind === 0) {
+      // Initial state — deep clone
+      state = structuredClone(entry.v);
+    } else if (entry.kind === 1 || entry.kind === 2) {
+      // Navigate path and set value
+      let target = state;
+      const path = entry.k;
+      for (let i = 0; i &lt; path.length - 1; i++) {
+        if (target[path[i]] === undefined) {
+          target[path[i]] = typeof path[i+1] === 'number' ? [] : {};
+        }
+        target = target[path[i]];
+      }
+      target[path[path.length - 1]] = entry.v;
+    }
+  }
+
+  return state; // Fully reconstructed session
+}</code></pre>
+
+<p>The algorithm applies all mutations in order. The final state reflects the session as it existed when VS Code last persisted it. Both Kind 1 and Kind 2 use identical path-navigation mechanics; the distinction is semantic (Kind 2 indicates the value is an array).</p>
+
+<pre class="mermaid">
+flowchart TD
+  L0["<b>Line 0 — Kind 0</b><br/>Initial state snapshot<br/><code>state = &#123; sessionId, creationDate, requests:[], inputState &#125;</code>"]
+  L1["<b>Line 1 — Kind 1</b><br/>Scalar mutation<br/><code>state.inputState.inputText = &quot;user's question&quot;</code>"]
+  L2["<b>Line 2 — Kind 1</b><br/>Scalar mutation<br/><code>state.customTitle = &quot;Session Title&quot;</code>"]
+  L3["<b>Line 3 — Kind 2</b><br/>Array replacement<br/><code>state.requests = [&#123; requestId, timestamp, agent, response:[] &#125;]</code>"]
+  L4["<b>Line 4 — Kind 1</b><br/>Scalar mutation<br/><code>state.requests[0].result = &#123; timings, metadata &#125;</code>"]
+  L5["<b>Line 5 — Kind 2</b><br/>Array replacement<br/><code>state.requests[0].response = [&#123; thinking &#125;, &#123; text &#125;, &#123; tool &#125;]</code>"]
+  L6["<b>Line 6 — Kind 1</b><br/>Scalar mutation<br/><code>state.requests[0].modelState = &#123; value:1, completedAt &#125;</code>"]
+  FINAL["✅ <b>Final State</b><br/>Complete conversation with all messages"]
+  L0 --> L1 --> L2 --> L3 --> L4 --> L5 --> L6 --> FINAL
+</pre>
+
+<!-- ═══════════════════════ REQUEST STRUCTURE ═══════════════════════ -->
+<h2 id="request-structure">Request &amp; Response Structure</h2>
+
+<p>Each entry in the <code>requests</code> array represents one exchange (user prompt + AI response).</p>
+
+<h4>Request Object</h4>
+<table>
+  <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+  <tr><td><code>requestId</code></td><td>String</td><td>Unique identifier for this request (e.g., <code>request_50502a1e-...</code>)</td></tr>
+  <tr><td><code>timestamp</code></td><td>Number</td><td>Epoch milliseconds when the request was sent</td></tr>
+  <tr><td><code>agent</code></td><td>Object</td><td>Agent metadata — <code>fullName</code>, <code>name</code>, <code>id</code>, available slash commands, extension info</td></tr>
+  <tr><td><code>modelId</code></td><td>String</td><td>Model identifier (e.g., <code>copilot/claude-opus-4.6</code>)</td></tr>
+  <tr><td><code>response</code></td><td>Array</td><td>AI response elements (text, thinking, tool calls — see below)</td></tr>
+  <tr><td><code>result</code></td><td>Object</td><td>Completion metadata — <code>timings</code>, <code>metadata.renderedUserMessage</code></td></tr>
+  <tr><td><code>modelState</code></td><td>Object</td><td>Completion state — <code>value</code> (0=pending, 1=complete), <code>completedAt</code></td></tr>
+  <tr><td><code>contentReferences</code></td><td>Array</td><td>Files/URIs referenced in the context</td></tr>
+  <tr><td><code>codeCitations</code></td><td>Array</td><td>Code citation information</td></tr>
+  <tr><td><code>followups</code></td><td>Array</td><td>Suggested follow-up questions</td></tr>
+</table>
+
+<h4>Response Element Types</h4>
+<p>The <code>response</code> array contains objects of different types:</p>
+
+<table>
+  <tr><th>Type</th><th>Identification</th><th>Description</th></tr>
+  <tr><td><strong>Text</strong></td><td><code>{ value: "..." }</code></td><td>Markdown text content from the AI. The primary response text.</td></tr>
+  <tr><td><strong>Thinking</strong></td><td><code>{ kind: "thinking", value: "..." }</code></td><td>AI reasoning/chain-of-thought (when using models with extended thinking). Includes optional <code>generatedTitle</code>.</td></tr>
+  <tr><td><strong>Thinking Done</strong></td><td><code>{ kind: "thinking", metadata: { vscodeReasoningDone: true } }</code></td><td>Marker indicating thinking phase is complete. Filtered out by VS-CAP.</td></tr>
+  <tr><td><strong>Tool Call</strong></td><td><code>{ kind: "toolInvocationSerialized" }</code></td><td>Tool invocation — file read, terminal command, search, sub-agent execution, etc. Contains <code>invocationMessage</code> and <code>pastTenseMessage</code>.</td></tr>
+  <tr><td><strong>MCP Servers</strong></td><td><code>{ kind: "mcpServersStarting" }</code></td><td>MCP (Model Context Protocol) server startup events. Informational only.</td></tr>
+</table>
+
+<!-- ═══════════════════════ EDIT SESSIONS ═══════════════════════ -->
+<h2 id="edit-sessions">Chat Editing Sessions</h2>
+
+<p>Located at <code>chatEditingSessions/{uuid}/state.json</code>, these track inline code editing operations performed by the AI agent.</p>
+
+<pre><code>{
+  "version": 2,
+  "timeline": {
+    "checkpoints": [
+      {
+        "checkpointId": "116db3df-...",
+        "epoch": 0,
+        "label": "Initial State",
+        "description": "Starting point before any edits"
+      }
+    ],
+    "currentEpoch": 1,
+    "fileBaselines": [],
+    "operations": []
+  },
+  "initialFileContents": [],
+  "recentSnapshot": { "entries": [] }
+}</code></pre>
+
+<p>Key data points: checkpoint history (with labels and descriptions), edit operations performed, and file baselines showing what files were modified.</p>
+
+<!-- ═══════════════════════ COPILOT ARTIFACTS ═══════════════════════ -->
+<h2 id="copilot-artifacts">GitHub Copilot Chat Artifacts</h2>
+
+<h3>Chat Session Resources</h3>
+<p>Located at <code>GitHub.copilot-chat/chat-session-resources/{session-uuid}/{tool-id}/content.txt</code></p>
+<p>These are outputs from tool invocations during chat sessions — terminal output, file contents, search results, etc. They are linked to the parent session via the session UUID in the path.</p>
+
+<h3>Agent Memory</h3>
+<p>Located at <code>GitHub.copilot-chat/memory-tool/memories/{base64-uuid}/plan.md</code></p>
+<p>Persistent memory files created by the Copilot agent. These contain plans, notes, and context that the agent stores between sessions. The folder name is a Base64-encoded session UUID.</p>
+<p>Content is standard Markdown and is rendered by VS-CAP using the marked.js library.</p>
+
+<!-- ═══════════════════════ STATE VSCDB ═══════════════════════ -->
+<h2 id="state-vscdb">state.vscdb — SQLite Workspace State</h2>
+
+<p>Each workspace hash folder contains a <code>state.vscdb</code> SQLite database storing VS Code's workspace-specific state.</p>
+
+<h4>Database Schema</h4>
+<pre><code>-- Primary table
+CREATE TABLE ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB);</code></pre>
+
+<p>The database uses a simple key-value store in the <code>ItemTable</code>. Values are typically JSON strings.</p>
+
+<h4>Notable Keys</h4>
+<table>
+  <tr><th>Key Pattern</th><th>Content</th></tr>
+  <tr><td><code>workbench.panel.*</code></td><td>Panel positions, visibility, sizes</td></tr>
+  <tr><td><code>memento/workbench.editors.*</code></td><td>Recently opened files and editor state</td></tr>
+  <tr><td><code>workbench.explorer.*</code></td><td>File explorer state (expanded folders, scroll position)</td></tr>
+  <tr><td><code>extensionStorage/*</code></td><td>Extension-specific persistent data</td></tr>
+  <tr><td><code>debug.*</code></td><td>Debug configuration state</td></tr>
+  <tr><td><code>terminal.*</code></td><td>Terminal session state</td></tr>
+</table>
+
+<p>VS-CAP uses <a href="https://sql.js.org/">sql.js</a> (SQLite compiled to WebAssembly) to parse these databases entirely in the browser.</p>
+
+<!-- ═══════════════════════ SETTINGS ═══════════════════════ -->
+<h2 id="settings">Settings &amp; Profiles</h2>
+
+<p><code>settings.json</code> contains the user's VS Code configuration. VS-CAP groups settings by their namespace prefix (e.g., <code>editor.*</code>, <code>workbench.*</code>, <code>github.*</code>) for easy browsing.</p>
+
+<p>User profiles in the <code>profiles/</code> directory contain profile-specific overrides.</p>
+
+<!-- ═══════════════════════ NORMALIZATION ═══════════════════════ -->
+<h2 id="normalization">Parsing Pipeline — Normalization Process</h2>
+
+<p>VS-CAP follows this pipeline to transform raw artifacts into a readable format:</p>
+
+<pre class="mermaid">
+flowchart TD
+  S1["<b>1. INGEST</b><br/>Load ZIP or folder<br/>Build in-memory file index"]
+  S2["<b>2. DISCOVER</b><br/>Find workspace.json files<br/>Map hashes to project names"]
+  S3["<b>3. CATEGORIZE</b><br/>Sort files: chatSessions, editSessions,<br/>artifacts, memory, stateDb"]
+  S4["<b>4. LAZY PARSE</b><br/>Parse metadata only<br/>(first JSONL line for session list)"]
+  S5["<b>5. FULL PARSE</b><br/>User clicks session →<br/>full JSONL reconstruction"]
+  S6["<b>6. EXTRACT</b><br/>Pull user messages, AI responses,<br/>tool calls, timestamps"]
+  S7["<b>7. CONSOLIDATE</b><br/>Merge adjacent text<br/>response elements"]
+  S8["<b>8. RENDER</b><br/>Display as conversation<br/>with markdown rendering"]
+  S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8
+</pre>
+
+<h3>Lazy Loading Strategy</h3>
+<p>For large datasets (100+ workspaces, many sessions), VS-CAP uses lazy loading:</p>
+<ul>
+  <li><strong>Step 4</strong>: Only the first line (Kind 0) of each JSONL file is parsed to extract session metadata (title, date, model, request count). This is fast even for large files.</li>
+  <li><strong>Step 5</strong>: Full parsing (all mutations applied) only occurs when the user opens a specific session. Parsed results are cached in memory.</li>
+  <li>This approach enables handling datasets with thousands of sessions without browser slowdown.</li>
+</ul>
+
+<!-- ═══════════════════════ USER MESSAGE ═══════════════════════ -->
+<h2 id="user-message-extraction">User Message Extraction</h2>
+
+<p>The user's message is stored in a complex format that includes system context. VS-CAP extracts the actual user request from this wrapper.</p>
+
+<h4>Raw Rendered Message Format</h4>
+<pre><code>&lt;context&gt;
+The current date is March 9, 2026.
+&lt;/context&gt;
+&lt;editorContext&gt;
+The user's current file is d:\project\app.py.
+&lt;/editorContext&gt;
+&lt;reminderInstructions&gt;
+[System instructions for the AI model]
+&lt;/reminderInstructions&gt;
+&lt;userRequest&gt;
+Create a function that handles user authentication
+&lt;/userRequest&gt;</code></pre>
+
+<h4>Extraction Logic</h4>
+<pre><code>// Primary source: result.metadata.renderedUserMessage
+const fullText = request.result.metadata.renderedUserMessage
+  .map(r =&gt; r.text || r.value || '').join('\n');
+
+// Extract just the user's request:
+const match = fullText.match(/&lt;userRequest&gt;([\s\S]*?)&lt;\/userRequest&gt;/i);
+const userMessage = match ? match[1].trim() : fullText;
+
+// Also extract context sections for forensic completeness:
+const context = fullText.match(/&lt;context&gt;([\s\S]*?)&lt;\/context&gt;/i);
+const editorCtx = fullText.match(/&lt;editorContext&gt;([\s\S]*?)&lt;\/editorContext&gt;/i);</code></pre>
+
+<div class="callout callout-info">
+  <strong>🔍 Forensic Value</strong>
+  The full rendered message reveals what context the AI model actually received, including system instructions, current file, terminal state, and other environmental data. This can be crucial for understanding the AI's behavior in an investigation.
+</div>
+
+<!-- ═══════════════════════ RESPONSE RECONSTRUCTION ═══════════════════════ -->
+<h2 id="response-reconstruction">Response Reconstruction</h2>
+
+<p>The AI's response is an array of heterogeneous elements. VS-CAP processes them as follows:</p>
+
+<ol>
+  <li><strong>Filter</strong>: Remove empty text elements, "thinking done" markers, and MCP server events</li>
+  <li><strong>Classify</strong>: Identify each element as text, thinking, or tool call based on the <code>kind</code> field</li>
+  <li><strong>Consolidate</strong>: Merge adjacent text elements into continuous blocks (VS Code may split text across multiple array entries)</li>
+  <li><strong>Render</strong>: Text → Markdown rendering; Thinking → collapsible blocks; Tools → labeled invocation cards</li>
+</ol>
+
+<h4>Response Consolidation</h4>
+<pre><code>// Before consolidation:
+[
+  { type: 'text', text: 'Here is ' },
+  { type: 'text', text: 'the solution:\n\n' },
+  { type: 'tool', message: 'Reading file...' },
+  { type: 'text', text: '```python\nprint("hello")\n```' }
+]
+
+// After consolidation:
+[
+  { type: 'text', text: 'Here is the solution:\n\n' },
+  { type: 'tool', message: 'Reading file...' },
+  { type: 'text', text: '```python\nprint("hello")\n```' }
+]</code></pre>
+
+<!-- ═══════════════════════ TIMESTAMPS ═══════════════════════ -->
+<h2 id="timestamps">Timestamp Normalization</h2>
+
+<p>All timestamps in VS Code's data are stored as <strong>Unix epoch milliseconds</strong> (milliseconds since January 1, 1970 UTC).</p>
+
+<pre><code>// Raw timestamp from data:
+1773609980479
+
+// VS-CAP converts to locale-aware string:
+new Date(1773609980479).toLocaleString()
+// → "3/15/2026, 2:06:20 PM" (varies by browser locale)</code></pre>
+
+<p>Key timestamp fields:</p>
+<table>
+  <tr><th>Field</th><th>Location</th><th>Meaning</th></tr>
+  <tr><td><code>creationDate</code></td><td>Session state (Kind 0)</td><td>When the chat session was created</td></tr>
+  <tr><td><code>timestamp</code></td><td>Request object</td><td>When the user sent the message</td></tr>
+  <tr><td><code>completedAt</code></td><td><code>modelState</code></td><td>When the AI finished responding</td></tr>
+  <tr><td><code>firstProgress</code></td><td><code>result.timings</code></td><td>Milliseconds until first response token</td></tr>
+  <tr><td><code>totalElapsed</code></td><td><code>result.timings</code></td><td>Total response generation time in milliseconds</td></tr>
+</table>
+
+<!-- ═══════════════════════ FORENSIC METHODOLOGY ═══════════════════════ -->
+<h2 id="forensic-methodology">Forensic Methodology</h2>
+
+<h3>Collection Best Practices</h3>
+<ol>
+  <li><strong>Use KAPE with SYSTEM privileges</strong>: <code>PsExec64.exe -s kape.exe --tsource C: --tdest E:\output --target VSCode_WorkspaceStorage</code></li>
+  <li><strong>Hash the output</strong>: Generate SHA-256 hashes of all collected files before analysis</li>
+  <li><strong>Preserve timestamps</strong>: KAPE with <code>RecreateDirectories: true</code> preserves file system timestamps</li>
+  <li><strong>Document the chain</strong>: Record who collected, when, from which machine, and with what tool version</li>
+</ol>
+
+<h3>Analysis Considerations</h3>
+<ul>
+  <li>Chat sessions may contain sensitive code, credentials, or intellectual property</li>
+  <li>The <code>renderedUserMessage</code> reveals the full AI prompt context including system instructions</li>
+  <li>Tool invocations show file reads, terminal commands, and external API calls made by the AI</li>
+  <li>Thinking blocks reveal the AI's reasoning process, which may differ from the visible response</li>
+  <li>The <code>state.vscdb</code> database shows recently opened files and editor activity patterns</li>
+  <li>Agent memory files may contain plans, strategies, or accumulated knowledge from the AI</li>
+</ul>
+
+<!-- ═══════════════════════ DATA INTEGRITY ═══════════════════════ -->
+<h2 id="integrity">Data Integrity</h2>
+
+<p>VS-CAP operates as a <strong>read-only viewer</strong>. It does not modify any source files. Key integrity measures:</p>
+
+<ul>
+  <li>All data is loaded into JavaScript memory as immutable <code>Uint8Array</code> buffers</li>
+  <li>No data is written to disk, cookies, localStorage, sessionStorage, or IndexedDB</li>
+  <li>The original file bytes are preserved — parsing creates separate derived objects</li>
+  <li>The "Raw Files" tab allows viewing original file contents for verification</li>
+  <li>Export produces new JSON/CSV files from parsed data without modifying originals</li>
+</ul>
+
+<div class="callout callout-success">
+  <strong>✓ Verification</strong>
+  To verify VS-CAP's parsing accuracy, compare the conversation view with the raw JSONL file in the "Raw Files" tab. The JSONL mutations should reconstruct to the exact state shown in the conversation view.
+</div>
+
+<!-- ═══════════════════════ EXPORT ═══════════════════════ -->
+<h2 id="export">Export &amp; Reporting</h2>
+
+<h3>JSON Export</h3>
+<p>Produces a structured JSON file containing all parsed sessions with full metadata:</p>
+<pre><code>{
+  "exportDate": "2026-03-30T12:00:00.000Z",
+  "tool": "VS-CAP Viewer",
+  "version": "1.0",
+  "workspaceCount": 45,
+  "sessions": [
+    {
+      "workspace": "my-project",
+      "sessionId": "...",
+      "title": "Session Title",
+      "creationDate": 1773609865809,
+      "model": "Claude Opus 4.6",
+      "requests": [
+        {
+          "timestamp": 1773609980479,
+          "userMessage": "...",
+          "response": [{ "type": "text", "text": "..." }],
+          "timings": { "totalElapsed": 85251 }
+        }
+      ]
+    }
+  ]
+}</code></pre>
+
+<h3>CSV Export</h3>
+<p>Produces a flat CSV suitable for spreadsheet analysis or import into forensic reporting tools. One row per request/response exchange:</p>
+<table>
+  <tr><th>Column</th><th>Description</th></tr>
+  <tr><td>Workspace</td><td>Project name</td></tr>
+  <tr><td>Session ID</td><td>UUID of the chat session</td></tr>
+  <tr><td>Session Title</td><td>Auto-generated or custom session title</td></tr>
+  <tr><td>Creation Date</td><td>Locale-formatted date string</td></tr>
+  <tr><td>Request #</td><td>Sequential exchange number (1, 2, 3...)</td></tr>
+  <tr><td>Timestamp</td><td>When the user sent this message</td></tr>
+  <tr><td>Model</td><td>AI model identifier</td></tr>
+  <tr><td>Agent</td><td>Agent name (e.g., "GitHub Copilot")</td></tr>
+  <tr><td>User Message</td><td>Extracted user request text</td></tr>
+  <tr><td>AI Response</td><td>Combined text response (truncated at 5000 chars)</td></tr>
+  <tr><td>Duration (s)</td><td>Total response generation time in seconds</td></tr>
+  <tr><td>Tool Calls</td><td>Number of tool invocations in this response</td></tr>
+  <tr><td>Thinking Blocks</td><td>Number of thinking/reasoning blocks</td></tr>
+</table>
+
+<hr style="margin:48px 0 24px">
+<p style="color:var(--text3);text-align:center;font-size:13px">
+  VS-CAP — VSCode Session Chat Acquisition &amp; Parsing<br>
+  Documentation v1.0
+</p>
+
+</main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+// Init Mermaid with theme matching current page theme
+function initMermaid() {
+  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: isDark ? 'dark' : 'default',
+    themeVariables: isDark ? {
+      primaryColor: '#264f78',
+      primaryTextColor: '#d4d4d4',
+      primaryBorderColor: '#3e3e42',
+      lineColor: '#569cd6',
+      secondaryColor: '#1a3a2a',
+      tertiaryColor: '#2d2d2d',
+      fontFamily: '-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
+      fontSize: '13px'
+    } : {
+      fontFamily: '-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
+      fontSize: '13px'
+    },
+    flowchart: { curve: 'basis', padding: 16, htmlLabels: true }
+  });
+  mermaid.run({ querySelector: 'pre.mermaid' });
+}
+if (typeof mermaid !== 'undefined') {
+  // Store original Mermaid source for theme re-renders
+  document.querySelectorAll('pre.mermaid').forEach(el => {
+    el.setAttribute('data-original', el.innerHTML);
+  });
+  initMermaid();
+} else {
+  // Fallback: show raw text if Mermaid fails to load
+  document.querySelectorAll('pre.mermaid').forEach(el => {
+    el.style.fontFamily = 'var(--font-mono)';
+    el.style.whiteSpace = 'pre';
+    el.style.textAlign = 'left';
+  });
+}
+
+// Nav active state
+const navLinks = document.querySelectorAll('nav a');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      navLinks.forEach(l => l.classList.remove('active'));
+      const link = document.querySelector(`nav a[href="#${entry.target.id}"]`);
+      if (link) link.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+
+document.querySelectorAll('h1[id], h2[id]').forEach(el => observer.observe(el));
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  document.querySelector('.theme-toggle').textContent = next === 'dark' ? '🌙 Theme' : '☀️ Theme';
+  // Re-render Mermaid diagrams with new theme
+  if (typeof mermaid !== 'undefined') {
+    document.querySelectorAll('pre.mermaid').forEach(el => {
+      el.removeAttribute('data-processed');
+      el.innerHTML = el.getAttribute('data-original') || el.innerHTML;
+    });
+    initMermaid();
+  }
+}
+</script>
+</body>
+</html>

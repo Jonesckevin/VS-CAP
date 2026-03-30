@@ -1,0 +1,65 @@
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#1e1e1e;--bg2:#252526;--bg3:#2d2d2d;--text:#d4d4d4;--text2:#969696;--text3:#6a6a6a;
+  --accent:#007acc;--border:#3e3e42;--success:#4ec9b0;--warning:#dcdcaa;--error:#f44747;--info:#569cd6;
+  --font-mono:'Cascadia Code','Fira Code','Consolas',monospace;
+  --font-sans:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+}
+[data-theme="light"]{
+  --bg:#ffffff;--bg2:#f5f5f5;--bg3:#e8e8e8;--text:#1e1e1e;--text2:#616161;--text3:#9e9e9e;
+  --accent:#007acc;--border:#d4d4d4;--success:#16825d;--warning:#795e26;--error:#cd3131;--info:#0451a5;
+}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-sans);background:var(--bg);color:var(--text);font-size:15px;line-height:1.7}
+a{color:var(--info);text-decoration:none}a:hover{text-decoration:underline}
+code{font-family:var(--font-mono);font-size:13px;background:var(--bg3);padding:2px 6px;border-radius:3px}
+pre{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;
+  font-family:var(--font-mono);font-size:13px;line-height:1.5;margin:12px 0}
+pre code{background:none;padding:0}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border)}
+th{background:var(--bg2);font-weight:600;color:var(--text2);font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+tr:hover td{background:var(--bg2)}
+::-webkit-scrollbar{width:8px}::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:4px}
+
+/* Layout */
+.page{display:flex;min-height:100vh}
+nav{width:260px;position:fixed;top:0;left:0;bottom:0;background:var(--bg2);border-right:1px solid var(--border);
+  overflow-y:auto;padding:20px 0;flex-shrink:0;z-index:10}
+nav .brand{padding:0 20px 20px;font-size:20px;font-weight:700;border-bottom:1px solid var(--border);margin-bottom:12px}
+nav .brand span{color:var(--accent)}
+nav a{display:block;padding:7px 20px;color:var(--text2);font-size:13px;transition:all .15s;border-left:3px solid transparent}
+nav a:hover{color:var(--text);background:rgba(255,255,255,.04);text-decoration:none}
+nav a.active{color:var(--accent);border-left-color:var(--accent);background:rgba(0,122,204,.08)}
+nav .nav-section{padding:12px 20px 4px;font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text3);letter-spacing:.8px}
+main{margin-left:260px;max-width:900px;padding:40px 50px 80px}
+h1{font-size:32px;margin-bottom:8px;letter-spacing:-0.5px}
+h2{font-size:22px;margin:48px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border);color:var(--accent)}
+h3{font-size:17px;margin:28px 0 10px;color:var(--success)}
+h4{font-size:15px;margin:20px 0 8px;color:var(--info)}
+p{margin-bottom:12px}
+ul,ol{margin:8px 0 16px;padding-left:28px}
+li{margin-bottom:6px}
+.subtitle{color:var(--text2);font-size:16px;margin-bottom:32px}
+.callout{border-left:4px solid var(--accent);background:var(--bg2);padding:14px 18px;border-radius:0 8px 8px 0;margin:16px 0}
+.callout-warn{border-left-color:var(--warning)}
+.callout-info{border-left-color:var(--info)}
+.callout-success{border-left-color:var(--success)}
+.callout strong{display:block;margin-bottom:4px}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.badge-kind0{background:#264f78;color:#6cb6ff}
+.badge-kind1{background:#1a3a2a;color:var(--success)}
+.badge-kind2{background:#3a3a1a;color:var(--warning)}
+.diagram{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:20px;margin:16px 0;
+  font-family:var(--font-mono);font-size:13px;line-height:1.8;overflow-x:auto}
+pre.mermaid{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:24px 20px;
+  margin:16px 0;text-align:center;overflow-x:auto}
+pre.mermaid svg{max-width:100%;height:auto}
+.theme-toggle{position:fixed;top:12px;right:16px;z-index:20;background:var(--bg2);border:1px solid var(--border);
+  border-radius:20px;padding:6px 14px;cursor:pointer;font-size:13px;color:var(--text2)}
+.theme-toggle:hover{border-color:var(--accent);color:var(--text)}
+
+@media(max-width:768px){
+  nav{display:none}main{margin-left:0;padding:20px}
+}

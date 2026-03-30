@@ -1,0 +1,16 @@
+services:
+  vs-cap:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vs-cap
+    ports:
+      - "8088:8080"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /run
+    security_opt:
+      - no-new-privileges:true

@@ -1,0 +1,1645 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VS-CAP — VSCode Session Chat Acquisition &amp; Parsing</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   VS-CAP Viewer — CSS
+   ═══════════════════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-primary:#1e1e1e;--bg-secondary:#252526;--bg-tertiary:#2d2d2d;
+  --bg-hover:#2a2d2e;--bg-active:#37373d;--bg-input:#3c3c3c;
+  --text-primary:#d4d4d4;--text-secondary:#969696;--text-muted:#6a6a6a;
+  --accent:#007acc;--accent-hover:#1b8de8;--accent-dim:#264f78;
+  --border:#3e3e42;--border-light:#4e4e52;
+  --user-bg:#264f78;--ai-bg:#2d2d2d;--thinking-bg:#1a2e1a;--tool-bg:#2d2a1a;
+  --success:#4ec9b0;--warning:#dcdcaa;--error:#f44747;--info:#569cd6;
+  --radius:6px;--shadow:0 2px 8px rgba(0,0,0,.3);
+  --sidebar-w:300px;--header-h:48px;--statusbar-h:28px;
+  --font-mono:'Cascadia Code','Fira Code','Consolas',monospace;
+  --font-sans:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+}
+[data-theme="light"]{
+  --bg-primary:#ffffff;--bg-secondary:#f3f3f3;--bg-tertiary:#e8e8e8;
+  --bg-hover:#e4e6f1;--bg-active:#d3d3d3;--bg-input:#ffffff;
+  --text-primary:#1e1e1e;--text-secondary:#616161;--text-muted:#9e9e9e;
+  --accent:#007acc;--accent-hover:#0098ff;--accent-dim:#c9def1;
+  --border:#d4d4d4;--border-light:#e0e0e0;
+  --user-bg:#dce8f5;--ai-bg:#f5f5f5;--thinking-bg:#e6f4e6;--tool-bg:#f4f0e6;
+  --success:#16825d;--warning:#795e26;--error:#cd3131;--info:#0451a5;
+  --shadow:0 2px 8px rgba(0,0,0,.1);
+}
+html,body{height:100%;overflow:hidden;font-family:var(--font-sans);
+  background:var(--bg-primary);color:var(--text-primary);font-size:14px}
+a{color:var(--info);text-decoration:none}a:hover{text-decoration:underline}
+button{cursor:pointer;font-family:inherit;font-size:inherit;border:none;border-radius:var(--radius);padding:6px 14px;transition:all .15s}
+input,select{font-family:inherit;font-size:inherit;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);border-radius:var(--radius);padding:5px 10px;outline:none}
+input:focus,select:focus{border-color:var(--accent)}
+.hidden{display:none!important}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-ghost{background:transparent;color:var(--text-secondary);border:1px solid var(--border)}.btn-ghost:hover{background:var(--bg-hover);color:var(--text-primary)}
+.btn-danger{background:var(--error);color:#fff}.btn-danger:hover{opacity:.85}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;line-height:1.4}
+.badge-blue{background:var(--accent-dim);color:var(--info)}
+.badge-green{background:#1a3a2a;color:var(--success)}
+.badge-yellow{background:#3a3a1a;color:var(--warning)}
+.badge-red{background:#3a1a1a;color:var(--error)}
+[data-theme="light"] .badge-blue{background:#dce8f5;color:#0451a5}
+[data-theme="light"] .badge-green{background:#ddf4dd;color:#16825d}
+[data-theme="light"] .badge-yellow{background:#f4f0dd;color:#795e26}
+[data-theme="light"] .badge-red{background:#f4dddd;color:#cd3131}
+code{font-family:var(--font-mono);font-size:13px;background:var(--bg-active);padding:2px 5px;border-radius:3px}
+pre{background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);padding:12px;overflow-x:auto;font-family:var(--font-mono);font-size:13px;line-height:1.5;margin:8px 0}
+pre code{background:none;padding:0}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:var(--bg-secondary)}
+::-webkit-scrollbar-thumb{background:var(--bg-active);border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}
+
+/* ─── Landing Page ─── */
+#landing{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100vh;background:var(--bg-primary);padding:20px;text-align:center}
+#landing .logo{font-size:42px;font-weight:700;letter-spacing:-1px;margin-bottom:6px}
+#landing .logo span{color:var(--accent)}
+#landing .tagline{color:var(--text-secondary);font-size:16px;margin-bottom:40px}
+.drop-zone{width:100%;max-width:600px;border:2px dashed var(--border);border-radius:12px;
+  padding:60px 30px;transition:all .2s;background:var(--bg-secondary);margin-bottom:24px}
+.drop-zone.drag-over{border-color:var(--accent);background:var(--accent-dim);transform:scale(1.01)}
+.drop-zone h3{font-size:18px;margin-bottom:10px;color:var(--text-primary)}
+.drop-zone p{color:var(--text-secondary);margin-bottom:20px}
+.drop-zone .actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.landing-info{max-width:600px;color:var(--text-muted);font-size:12px;line-height:1.6}
+
+/* ─── Progress Overlay ─── */
+#progress-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);
+  display:flex;align-items:center;justify-content:center;z-index:1000}
+#progress-box{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;
+  padding:32px 40px;min-width:400px;text-align:center;box-shadow:var(--shadow)}
+#progress-box h3{margin-bottom:16px;font-size:16px}
+.progress-bar{width:100%;height:8px;background:var(--bg-active);border-radius:4px;overflow:hidden;margin-bottom:12px}
+.progress-fill{height:100%;background:var(--accent);border-radius:4px;transition:width .3s;width:0%}
+#progress-msg{color:var(--text-secondary);font-size:13px}
+
+/* ─── Header ─── */
+#header{height:var(--header-h);display:flex;align-items:center;padding:0 16px;
+  background:var(--bg-secondary);border-bottom:1px solid var(--border);gap:12px;flex-shrink:0}
+#header .brand{font-weight:700;font-size:15px;white-space:nowrap}
+#header .brand span{color:var(--accent)}
+#header .search-box{flex:1;max-width:400px;position:relative}
+#header .search-box input{width:100%;padding-left:30px}
+#header .search-box::before{content:"🔍";position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:13px;opacity:.6}
+#header .toolbar{display:flex;gap:8px;align-items:center;margin-left:auto}
+#header .toolbar label{font-size:12px;color:var(--text-secondary)}
+
+/* ─── App Layout ─── */
+#app{display:flex;height:calc(100vh - var(--header-h) - var(--statusbar-h));overflow:hidden}
+#sidebar{width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--bg-secondary);
+  border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0}
+#content{flex:1;overflow-y:auto;background:var(--bg-primary);display:flex;flex-direction:column}
+
+/* ─── Sidebar ─── */
+.sidebar-section{border-bottom:1px solid var(--border)}
+.sidebar-section-header{display:flex;align-items:center;padding:10px 14px;font-size:12px;
+  font-weight:600;text-transform:uppercase;color:var(--text-secondary);letter-spacing:.5px;cursor:pointer;user-select:none}
+.sidebar-section-header:hover{background:var(--bg-hover)}
+.sidebar-section-header .count{margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:400}
+.sidebar-section-header .chevron{margin-right:6px;font-size:10px;transition:transform .15s}
+.sidebar-section-header.collapsed .chevron{transform:rotate(-90deg)}
+.ws-item{padding:7px 14px 7px 24px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;
+  color:var(--text-secondary);transition:background .1s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ws-item:hover{background:var(--bg-hover);color:var(--text-primary)}
+.ws-item.active{background:var(--accent-dim);color:var(--text-primary);border-left:2px solid var(--accent)}
+.ws-item .ws-icon{font-size:14px;flex-shrink:0}
+.ws-item .ws-name{overflow:hidden;text-overflow:ellipsis}
+.ws-item .ws-count{margin-left:auto;font-size:11px;color:var(--text-muted);flex-shrink:0}
+.ws-sub{padding-left:12px}
+.ws-sub .ws-item{padding-left:36px;font-size:12px}
+
+/* ─── Content Tabs ─── */
+.tab-bar{display:flex;background:var(--bg-secondary);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto}
+.tab{padding:8px 20px;font-size:13px;color:var(--text-secondary);cursor:pointer;
+  border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s}
+.tab:hover{color:var(--text-primary);background:var(--bg-hover)}
+.tab.active{color:var(--text-primary);border-bottom-color:var(--accent);background:var(--bg-primary)}
+.tab-content{flex:1;overflow-y:auto;padding:20px}
+
+/* ─── Welcome / Empty ─── */
+.content-welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;color:var(--text-muted);text-align:center;padding:40px}
+.content-welcome h2{font-size:20px;color:var(--text-secondary);margin-bottom:8px}
+.content-welcome p{font-size:14px}
+
+/* ─── Session List ─── */
+.session-list{display:flex;flex-direction:column;gap:8px}
+.session-card{background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 18px;cursor:pointer;transition:all .15s}
+.session-card:hover{border-color:var(--accent);background:var(--bg-hover)}
+.session-card .session-title{font-size:14px;font-weight:600;margin-bottom:6px;color:var(--text-primary)}
+.session-card .session-meta{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary)}
+.session-card .session-meta span{display:flex;align-items:center;gap:4px}
+
+/* ─── Conversation View ─── */
+.conv-header{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.conv-header h2{font-size:18px;flex:1}
+.conv-header .conv-back{font-size:20px;cursor:pointer;color:var(--text-secondary);padding:4px 8px;border-radius:var(--radius)}
+.conv-header .conv-back:hover{background:var(--bg-hover);color:var(--text-primary)}
+.conv-meta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;font-size:12px;color:var(--text-secondary)}
+.conv-messages{display:flex;flex-direction:column;gap:16px}
+.msg{max-width:85%;border-radius:12px;padding:14px 18px;line-height:1.6;position:relative}
+.msg-user{align-self:flex-end;background:var(--user-bg);border-bottom-right-radius:4px}
+.msg-ai{align-self:flex-start;background:var(--ai-bg);border:1px solid var(--border);border-bottom-left-radius:4px}
+.msg-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;color:var(--text-secondary)}
+.msg-header .sender{font-weight:600;color:var(--text-primary)}
+.msg-body{font-size:14px;line-height:1.7;word-wrap:break-word}
+.msg-body p{margin-bottom:8px}
+.msg-body ul,.msg-body ol{margin:8px 0;padding-left:24px}
+.msg-body img{max-width:100%;border-radius:var(--radius)}
+.msg-body h1,.msg-body h2,.msg-body h3,.msg-body h4{margin:12px 0 6px}
+.msg-context{margin-top:8px}
+.msg-context details{font-size:12px;color:var(--text-secondary)}
+.msg-context summary{cursor:pointer;padding:4px 0}
+.msg-context summary:hover{color:var(--text-primary)}
+.msg-context pre{font-size:11px;max-height:200px;overflow-y:auto}
+.thinking-block{background:var(--thinking-bg);border:1px solid rgba(78,201,176,.2);border-radius:var(--radius);margin:8px 0;font-size:13px}
+.thinking-block summary{padding:8px 12px;cursor:pointer;color:var(--success);font-weight:500;font-size:12px}
+.thinking-block .thinking-content{padding:8px 12px;color:var(--text-secondary);white-space:pre-wrap;max-height:300px;overflow-y:auto;font-size:12px}
+.tool-call{background:var(--tool-bg);border:1px solid rgba(220,220,170,.2);border-radius:var(--radius);
+  padding:8px 12px;margin:6px 0;font-size:12px;display:flex;align-items:flex-start;gap:8px}
+.tool-call .tool-icon{flex-shrink:0}
+.tool-call .tool-msg{color:var(--text-primary);flex:1;word-break:break-word}
+.tool-call .tool-source{color:var(--text-muted);font-size:11px;white-space:nowrap}
+.msg-footer{margin-top:8px;font-size:11px;color:var(--text-muted);display:flex;gap:12px;flex-wrap:wrap}
+
+/* ─── Edit Sessions ─── */
+.edit-card{background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;margin-bottom:8px}
+.edit-card h4{font-size:13px;margin-bottom:8px}
+.timeline{border-left:2px solid var(--accent);padding-left:16px;margin:8px 0}
+.timeline-item{position:relative;padding:6px 0;font-size:13px}
+.timeline-item::before{content:"";position:absolute;left:-21px;top:10px;width:10px;height:10px;
+  background:var(--accent);border-radius:50%;border:2px solid var(--bg-secondary)}
+
+/* ─── Artifacts / Memory ─── */
+.artifact-card{background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px}
+.artifact-card h4{font-size:13px;margin-bottom:6px;color:var(--info)}
+.artifact-card .artifact-path{font-size:11px;color:var(--text-muted);margin-bottom:8px;word-break:break-all;font-family:var(--font-mono)}
+.artifact-content{max-height:400px;overflow-y:auto}
+
+/* ─── SQLite State Table ─── */
+.state-table{width:100%;border-collapse:collapse;font-size:13px}
+.state-table th{text-align:left;padding:8px 12px;background:var(--bg-secondary);border-bottom:2px solid var(--border);
+  position:sticky;top:0;font-weight:600;color:var(--text-secondary)}
+.state-table td{padding:6px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+.state-table tr:hover td{background:var(--bg-hover)}
+.state-table .key-col{font-family:var(--font-mono);font-size:12px;white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+.state-table .val-col{max-width:600px;word-break:break-word;font-size:12px}
+.state-filter{margin-bottom:12px}
+
+/* ─── Raw Files Browser ─── */
+.file-tree{font-size:13px}
+.file-tree-item{padding:5px 8px;cursor:pointer;display:flex;align-items:center;gap:6px;border-radius:var(--radius)}
+.file-tree-item:hover{background:var(--bg-hover)}
+.file-tree-item.folder{font-weight:500}
+.file-tree-children{padding-left:18px}
+.file-preview{background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px;margin-top:12px;max-height:500px;overflow:auto}
+
+/* ─── Export Modal ─── */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);
+  display:flex;align-items:center;justify-content:center;z-index:900}
+.modal{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;
+  padding:24px;min-width:400px;max-width:500px;box-shadow:var(--shadow)}
+.modal h3{margin-bottom:16px}
+.modal .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.modal label{display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px}
+
+/* ─── Search Results ─── */
+.search-results{padding:20px}
+.search-results h3{margin-bottom:12px}
+.search-result{background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);
+  padding:12px;margin-bottom:8px;cursor:pointer;transition:border-color .15s}
+.search-result:hover{border-color:var(--accent)}
+.search-result .sr-title{font-weight:600;font-size:13px;margin-bottom:4px}
+.search-result .sr-context{font-size:12px;color:var(--text-secondary)}
+.search-result mark{background:var(--warning);color:#000;padding:0 2px;border-radius:2px}
+
+/* ─── Status Bar ─── */
+#statusbar{height:var(--statusbar-h);display:flex;align-items:center;padding:0 14px;
+  background:var(--accent);color:#fff;font-size:12px;gap:16px;flex-shrink:0}
+#statusbar .status-item{display:flex;align-items:center;gap:4px;white-space:nowrap}
+
+/* ─── Settings View ─── */
+.settings-tree{font-size:13px}
+.settings-group{margin-bottom:12px}
+.settings-group summary{font-weight:600;cursor:pointer;padding:6px 0;color:var(--info)}
+.settings-pair{display:grid;grid-template-columns:minmax(200px,1fr) 2fr;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)}
+.settings-key{font-family:var(--font-mono);font-size:12px;color:var(--text-secondary)}
+.settings-val{font-size:12px;word-break:break-word}
+
+/* ─── Responsive ─── */
+@media(max-width:768px){
+  #sidebar{position:absolute;left:-100%;z-index:100;height:100%;transition:left .3s}
+  #sidebar.open{left:0}
+  .msg{max-width:95%}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ LANDING PAGE ═══════════════════════ -->
+<div id="landing">
+  <div class="logo">VS-<span>CAP</span></div>
+  <div class="tagline">VSCode Session Chat Acquisition &amp; Parsing — Forensic Viewer</div>
+  <div style="margin-bottom:12px"><a href="vs-cap-docs.html" style="color:var(--info);font-size:14px">📖 Documentation</a></div>
+  <div class="drop-zone" id="dropZone">
+    <h3>Load Collected Evidence</h3>
+    <p>Drag &amp; drop a ZIP file or select a folder of collected VS Code workspace data</p>
+    <div class="actions">
+      <button class="btn-primary" onclick="document.getElementById('zipInput').click()">📦 Open ZIP File</button>
+      <button class="btn-ghost" onclick="document.getElementById('folderInput').click()">📂 Select Folder</button>
+    </div>
+    <input type="file" id="zipInput" accept=".zip" class="hidden">
+    <input type="file" id="folderInput" webkitdirectory directory multiple class="hidden">
+  </div>
+  <div class="landing-info">
+    <strong>VS-CAP</strong> parses VS Code workspaceStorage collected via KAPE (or manually).
+    Supports chat sessions (JSONL), edit sessions, GitHub Copilot artifacts, workspace state (SQLite), and settings.
+    All data is processed in-browser — nothing is uploaded or stored. Data clears on page refresh.
+  </div>
+</div>
+
+<!-- ═══════════════════════ PROGRESS OVERLAY ═══════════════════ -->
+<div id="progress-overlay" class="hidden">
+  <div id="progress-box">
+    <h3>Processing Evidence...</h3>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div id="progress-msg">Initializing...</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ MAIN VIEWER ═══════════════════════ -->
+<div id="viewer" class="hidden">
+  <div id="header">
+    <div class="brand">VS-<span>CAP</span></div>
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="Search sessions, messages, artifacts...">
+    </div>
+    <div class="toolbar">
+      <label>From <input type="date" id="dateFrom" style="width:130px"></label>
+      <label>To <input type="date" id="dateTo" style="width:130px"></label>
+      <button class="btn-ghost" onclick="VSCAP.ui.showExportModal()" title="Export data">📤 Export</button>
+      <button class="btn-ghost" onclick="window.open('vs-cap-docs.html','_blank')" title="Documentation">📖 Docs</button>
+      <button class="btn-ghost" onclick="VSCAP.ui.toggleTheme()" id="themeBtn" title="Toggle theme">🌙</button>
+      <button class="btn-danger" onclick="VSCAP.clearAll()" title="Clear all loaded data">✕ Clear</button>
+    </div>
+  </div>
+
+  <div id="app">
+    <aside id="sidebar"></aside>
+    <div id="content">
+      <div class="content-welcome" id="welcomePane">
+        <h2>Select a workspace from the sidebar</h2>
+        <p>Browse chat sessions, edit history, Copilot artifacts, and workspace state</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="statusbar">
+    <span class="status-item" id="statWorkspaces">📁 0 workspaces</span>
+    <span class="status-item" id="statSessions">💬 0 sessions</span>
+    <span class="status-item" id="statFiles">📄 0 files</span>
+    <span class="status-item" id="statSize">💾 0 B</span>
+    <span class="status-item" style="margin-left:auto" id="statLib">Libraries: checking...</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════ LIBRARIES (CDN) ═══════════════════ -->
+<!-- For air-gapped use, run bundle-airgap.ps1 to create a self-contained version -->
+<script>window._VSCAP_LIB_FAILS = [];</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"
+        onerror="window._VSCAP_LIB_FAILS.push('JSZip')"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.11.0/sql-wasm.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"
+        onerror="window._VSCAP_LIB_FAILS.push('sql.js')"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"
+        onerror="window._VSCAP_LIB_FAILS.push('marked')"></script>
+
+<!-- ═══════════════════════ APPLICATION CODE ═══════════════════ -->
+<script>
+"use strict";
+
+/* ═══════════════════════════════════════════════════════════════
+   VS-CAP — Main Application
+   ═══════════════════════════════════════════════════════════════ */
+const VSCAP = {
+  /* ─── State ─── */
+  data: {
+    workspaces: [],          // [{hash, path, name, files: Map, chatSessions:[], editSessions:[], artifacts:[], memory:[], stateDbBuffer:null}]
+    globalStorage: new Map(),
+    settingsJson: null,
+    allFiles: new Map(),     // relativePath → {data: Uint8Array|string, size:number}
+    totalSize: 0,
+    parsedSessions: new Map() // sessionId → parsed session (lazy cache)
+  },
+  _failedLibs: [],
+  _sqlDb: null,
+  _activeWs: null,
+  _activeTab: null,
+
+  _libFail(name) { VSCAP._failedLibs.push(name) },
+
+  /* ─── Initialize ─── */
+  init() {
+    // Merge any early library failures detected before VSCAP was defined
+    if (window._VSCAP_LIB_FAILS) VSCAP._failedLibs = window._VSCAP_LIB_FAILS;
+
+    const dz = document.getElementById('dropZone');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over') });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); VSCAP.ingest.handleDrop(e) });
+    document.getElementById('zipInput').addEventListener('change', e => { if(e.target.files[0]) VSCAP.ingest.fromZip(e.target.files[0]) });
+    document.getElementById('folderInput').addEventListener('change', e => { if(e.target.files.length) VSCAP.ingest.fromFolder(e.target.files) });
+    document.getElementById('searchInput').addEventListener('input', VSCAP._debounce(e => VSCAP.search.run(e.target.value), 300));
+    document.getElementById('dateFrom').addEventListener('change', () => VSCAP.ui.applyDateFilter());
+    document.getElementById('dateTo').addEventListener('change', () => VSCAP.ui.applyDateFilter());
+
+    // Configure marked — escape raw HTML to prevent XSS from evidence data
+    if (typeof marked !== 'undefined') {
+      marked.use({
+        breaks: true, gfm: true,
+        renderer: {
+          html(token) { return VSCAP._esc(typeof token === 'string' ? token : token.text || token.raw || ''); }
+        }
+      });
+    }
+
+    // Check libraries
+    setTimeout(() => {
+      const libs = [];
+      if (typeof JSZip !== 'undefined') libs.push('JSZip ✓');
+      else libs.push('JSZip ✗');
+      if (typeof initSqlJs !== 'undefined') libs.push('sql.js ✓');
+      else libs.push('sql.js ✗');
+      if (typeof marked !== 'undefined') libs.push('marked ✓');
+      else libs.push('marked ✗');
+      document.getElementById('statLib').textContent = libs.join(' | ');
+    }, 2000);
+  },
+
+  _debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms) } },
+
+  _esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML },
+
+  _formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+    return (bytes / 1073741824).toFixed(2) + ' GB';
+  },
+
+  _formatDate(epoch) {
+    if (!epoch) return 'Unknown';
+    try { return new Date(epoch).toLocaleString() } catch { return String(epoch) }
+  },
+
+  _renderMd(text) {
+    if (typeof marked !== 'undefined') {
+      try { return marked.parse(text) } catch { return '<pre>' + VSCAP._esc(text) + '</pre>' }
+    }
+    return '<pre>' + VSCAP._esc(text) + '</pre>';
+  },
+
+  /* ═══════════════════════════════════════════════════════════
+     INGEST — ZIP & Folder loading
+     ═══════════════════════════════════════════════════════════ */
+  ingest: {
+    async handleDrop(e) {
+      const items = e.dataTransfer.items;
+      if (items && items.length === 1 && items[0].kind === 'file') {
+        const file = items[0].getAsFile();
+        if (file.name.endsWith('.zip')) {
+          return VSCAP.ingest.fromZip(file);
+        }
+      }
+      // Try as files from folder
+      if (e.dataTransfer.files.length) {
+        const f = e.dataTransfer.files[0];
+        if (f.name.endsWith('.zip')) return VSCAP.ingest.fromZip(f);
+      }
+      // Try webkitGetAsEntry for folder drops
+      if (items && items[0] && items[0].webkitGetAsEntry) {
+        const entry = items[0].webkitGetAsEntry();
+        if (entry && entry.isDirectory) {
+          return VSCAP.ingest.fromDirectoryEntry(entry);
+        }
+      }
+      alert('Please drop a .zip file or a folder.');
+    },
+
+    async fromZip(file) {
+      if (typeof JSZip === 'undefined') { alert('JSZip library not loaded. Cannot process ZIP files.'); return }
+      VSCAP.ui.showProgress(0, 'Reading ZIP file...');
+      try {
+        const zip = await JSZip.loadAsync(file, {
+          onUpdate: meta => VSCAP.ui.showProgress(Math.round(meta.percent * 0.4), 'Extracting: ' + Math.round(meta.percent) + '%')
+        });
+        VSCAP.ui.showProgress(40, 'Building file index...');
+        const entries = Object.keys(zip.files);
+        let processed = 0;
+        for (const path of entries) {
+          const entry = zip.files[path];
+          if (!entry.dir) {
+            const data = await entry.async('uint8array');
+            const normPath = path.replace(/\\/g, '/');
+            VSCAP.data.allFiles.set(normPath, { data, size: data.byteLength });
+            VSCAP.data.totalSize += data.byteLength;
+          }
+          processed++;
+          if (processed % 50 === 0) VSCAP.ui.showProgress(40 + Math.round((processed / entries.length) * 30), `Indexing files: ${processed}/${entries.length}`);
+        }
+        await VSCAP.ingest._processFiles();
+      } catch (err) {
+        VSCAP.ui.hideProgress();
+        alert('Error processing ZIP: ' + err.message);
+        console.error(err);
+      }
+    },
+
+    async fromFolder(fileList) {
+      VSCAP.ui.showProgress(0, 'Reading folder...');
+      let processed = 0;
+      for (const file of fileList) {
+        const path = (file.webkitRelativePath || file.name).replace(/\\/g, '/');
+        try {
+          const buf = await file.arrayBuffer();
+          const data = new Uint8Array(buf);
+          VSCAP.data.allFiles.set(path, { data, size: data.byteLength });
+          VSCAP.data.totalSize += data.byteLength;
+        } catch {}
+        processed++;
+        if (processed % 50 === 0) VSCAP.ui.showProgress(Math.round((processed / fileList.length) * 70), `Reading: ${processed}/${fileList.length} files`);
+      }
+      await VSCAP.ingest._processFiles();
+    },
+
+    async fromDirectoryEntry(dirEntry) {
+      VSCAP.ui.showProgress(0, 'Scanning folder...');
+      const files = [];
+      async function traverse(entry, path) {
+        if (entry.isFile) {
+          const file = await new Promise((res, rej) => entry.file(res, rej));
+          files.push({ file, path: path + entry.name });
+        } else if (entry.isDirectory) {
+          const reader = entry.createReader();
+          let entries = [];
+          // readEntries may return results in batches
+          let batch;
+          do {
+            batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+            entries = entries.concat(batch);
+          } while (batch.length > 0);
+          for (const child of entries) {
+            await traverse(child, path + entry.name + '/');
+          }
+        }
+      }
+      await traverse(dirEntry, '');
+      VSCAP.ui.showProgress(30, `Found ${files.length} files, reading...`);
+      let i = 0;
+      for (const { file, path } of files) {
+        try {
+          const buf = await file.arrayBuffer();
+          const data = new Uint8Array(buf);
+          VSCAP.data.allFiles.set(path, { data, size: data.byteLength });
+          VSCAP.data.totalSize += data.byteLength;
+        } catch {}
+        i++;
+        if (i % 50 === 0) VSCAP.ui.showProgress(30 + Math.round((i / files.length) * 40), `Reading: ${i}/${files.length}`);
+      }
+      await VSCAP.ingest._processFiles();
+    },
+
+    async _processFiles() {
+      VSCAP.ui.showProgress(70, 'Discovering workspaces...');
+      const files = VSCAP.data.allFiles;
+
+      // Find workspaceStorage hash folders by locating workspace.json files
+      const wsJsonPaths = [...files.keys()].filter(p => p.match(/workspaceStorage\/[^/]+\/workspace\.json$/i) || p.match(/[^/]+\/workspace\.json$/) && !p.includes('globalStorage'));
+      const hashMap = new Map();
+
+      for (const wjPath of wsJsonPaths) {
+        try {
+          const text = new TextDecoder().decode(files.get(wjPath).data);
+          const wsJson = JSON.parse(text);
+          const parts = wjPath.replace(/\\/g, '/').split('/');
+          const wsJsonIdx = parts.indexOf('workspace.json');
+          const hash = parts[wsJsonIdx - 1];
+          // Build prefix for this workspace hash folder
+          const prefix = parts.slice(0, wsJsonIdx).join('/') + '/';
+
+          let folderUri = wsJson.folder || wsJson.workspace || '';
+          let friendlyName = folderUri;
+          try {
+            friendlyName = decodeURIComponent(folderUri.replace(/^file:\/\/\//i, '').replace(/\+/g, ' '));
+          } catch { friendlyName = folderUri }
+          // Take last path component as short name
+          const shortName = friendlyName.split('/').filter(Boolean).pop() || hash;
+
+          hashMap.set(hash, { hash, prefix, path: friendlyName, name: shortName, wsJson,
+            files: new Map(), chatSessions: [], editSessions: [], artifacts: [], memory: [], stateDbBuffer: null });
+        } catch {}
+      }
+
+      // If no workspace.json found, treat top-level hash-like folders as workspaces
+      if (hashMap.size === 0) {
+        const topFolders = new Set();
+        for (const p of files.keys()) {
+          const first = p.split('/')[0];
+          if (first && /^[a-f0-9]{20,}$/i.test(first)) topFolders.add(first);
+        }
+        for (const hash of topFolders) {
+          hashMap.set(hash, { hash, prefix: hash + '/', path: hash, name: hash.substring(0, 12) + '…',
+            wsJson: null, files: new Map(), chatSessions: [], editSessions: [], artifacts: [], memory: [], stateDbBuffer: null });
+        }
+      }
+
+      VSCAP.ui.showProgress(75, `Found ${hashMap.size} workspaces, categorizing files...`);
+
+      // Assign files to workspaces
+      for (const [filePath, fileData] of files) {
+        const norm = filePath.replace(/\\/g, '/');
+        let assigned = false;
+        for (const [, ws] of hashMap) {
+          if (norm.startsWith(ws.prefix) || norm.startsWith(ws.hash + '/')) {
+            const relPath = norm.startsWith(ws.prefix) ? norm.substring(ws.prefix.length) : norm.substring(ws.hash.length + 1);
+            ws.files.set(relPath, fileData);
+
+            // Categorize
+            if (/^chatSessions\/.*\.jsonl$/i.test(relPath)) {
+              ws.chatSessions.push(relPath);
+            } else if (/^chatEditingSessions\/.*\/state\.json$/i.test(relPath)) {
+              ws.editSessions.push(relPath);
+            } else if (/^GitHub\.copilot-chat\/chat-session-resources\//i.test(relPath)) {
+              ws.artifacts.push(relPath);
+            } else if (/^GitHub\.copilot-chat\/memory-tool\//i.test(relPath)) {
+              ws.memory.push(relPath);
+            } else if (/^state\.vscdb$/i.test(relPath)) {
+              ws.stateDbBuffer = fileData.data;
+            }
+            assigned = true;
+            break;
+          }
+        }
+        // Global storage and settings
+        if (!assigned) {
+          if (/globalStorage/i.test(norm)) VSCAP.data.globalStorage.set(norm, fileData);
+          if (/settings\.json$/i.test(norm) && !norm.includes('workspaceStorage') && !norm.includes('globalStorage')) {
+            try { VSCAP.data.settingsJson = JSON.parse(new TextDecoder().decode(fileData.data)) } catch {}
+          }
+        }
+      }
+
+      VSCAP.data.workspaces = [...hashMap.values()].sort((a, b) => a.name.localeCompare(b.name));
+
+      VSCAP.ui.showProgress(90, 'Building interface...');
+      await new Promise(r => setTimeout(r, 100));
+
+      // Count totals
+      let totalSessions = 0;
+      for (const ws of VSCAP.data.workspaces) totalSessions += ws.chatSessions.length;
+
+      document.getElementById('statWorkspaces').textContent = `📁 ${VSCAP.data.workspaces.length} workspaces`;
+      document.getElementById('statSessions').textContent = `💬 ${totalSessions} sessions`;
+      document.getElementById('statFiles').textContent = `📄 ${files.size} files`;
+      document.getElementById('statSize').textContent = `💾 ${VSCAP._formatSize(VSCAP.data.totalSize)}`;
+
+      VSCAP.ui.showProgress(100, 'Done!');
+      await new Promise(r => setTimeout(r, 400));
+      VSCAP.ui.hideProgress();
+
+      document.getElementById('landing').classList.add('hidden');
+      document.getElementById('viewer').classList.remove('hidden');
+      VSCAP.ui.renderSidebar();
+    }
+  },
+
+  /* ═══════════════════════════════════════════════════════════
+     PARSE — Data parsers
+     ═══════════════════════════════════════════════════════════ */
+  parse: {
+    /* ─── JSONL Chat Session ─── */
+    chatSession(text) {
+      const lines = text.split('\n').filter(l => l.trim());
+      if (lines.length === 0) return null;
+      let state = {};
+      for (let i = 0; i < lines.length; i++) {
+        try {
+          const entry = JSON.parse(lines[i]);
+          if (entry.kind === 0) {
+            state = structuredClone ? structuredClone(entry.v) : JSON.parse(JSON.stringify(entry.v));
+          } else if (entry.kind === 1 || entry.kind === 2) {
+            VSCAP.parse._applyMutation(state, entry.k, entry.v);
+          }
+        } catch (e) { console.warn('JSONL parse error line', i, e) }
+      }
+
+      const requests = (state.requests || []).map(r => VSCAP.parse._extractRequest(r));
+      return {
+        sessionId: state.sessionId || '',
+        title: state.customTitle || 'Untitled Session',
+        creationDate: state.creationDate || null,
+        model: state.inputState?.selectedModel?.metadata?.name || state.inputState?.selectedModel?.identifier || 'Unknown',
+        modelId: state.inputState?.selectedModel?.identifier || '',
+        mode: state.inputState?.mode?.kind || state.inputState?.mode?.id || 'Unknown',
+        responder: state.responderUsername || 'AI',
+        requests,
+        rawLineCount: lines.length,
+        hasPendingEdits: !!state.hasPendingEdits
+      };
+    },
+
+    _applyMutation(obj, path, value) {
+      if (!path || path.length === 0) return;
+      let target = obj;
+      for (let i = 0; i < path.length - 1; i++) {
+        const key = path[i];
+        if (target[key] === undefined || target[key] === null) {
+          target[key] = typeof path[i + 1] === 'number' ? [] : {};
+        }
+        target = target[key];
+      }
+      target[path[path.length - 1]] = value;
+    },
+
+    _extractRequest(req) {
+      if (!req) return null;
+      // Extract user message
+      let userMessage = '';
+      let userContext = '';
+      if (req.result?.metadata?.renderedUserMessage) {
+        const full = req.result.metadata.renderedUserMessage.map(r => r.text || r.value || '').join('\n');
+        const userMatch = full.match(/<userRequest>([\s\S]*?)<\/userRequest>/i);
+        userMessage = userMatch ? userMatch[1].trim() : full;
+        // Extract context sections
+        const ctxMatch = full.match(/<context>([\s\S]*?)<\/context>/i);
+        const editorMatch = full.match(/<editorContext>([\s\S]*?)<\/editorContext>/i);
+        const reminderMatch = full.match(/<reminderInstructions>([\s\S]*?)<\/reminderInstructions>/i);
+        const parts = [];
+        if (ctxMatch) parts.push('Context: ' + ctxMatch[1].trim());
+        if (editorMatch) parts.push('Editor: ' + editorMatch[1].trim());
+        if (reminderMatch) parts.push('System Instructions: ' + reminderMatch[1].trim().substring(0, 200) + '...');
+        userContext = parts.join('\n\n');
+        // If no <userRequest> tags, use the full text (might be a simpler format)
+        if (!userMatch && !ctxMatch) userMessage = full;
+      }
+      // Fallback: check for message.text
+      if (!userMessage && req.message) {
+        userMessage = typeof req.message === 'string' ? req.message : (req.message.text || req.message.value || JSON.stringify(req.message));
+      }
+
+      // Extract response elements
+      const responseElements = [];
+      if (Array.isArray(req.response)) {
+        for (const elem of req.response) {
+          if (!elem) continue;
+          if (elem.kind === 'thinking') {
+            if (elem.value && !elem.metadata?.vscodeReasoningDone) {
+              responseElements.push({ type: 'thinking', text: elem.value, title: elem.generatedTitle || '' });
+            }
+          } else if (elem.kind === 'toolInvocationSerialized') {
+            let msg = elem.pastTenseMessage?.value || elem.invocationMessage?.value || elem.invocationMessage || '';
+            if (typeof msg !== 'string') msg = JSON.stringify(msg);
+            let source = elem.originMessage || elem.source?.label || '';
+            if (typeof source !== 'string') source = source.label || JSON.stringify(source);
+            responseElements.push({ type: 'tool', message: msg, source,
+              toolData: elem.toolSpecificData || null,
+              isComplete: elem.isComplete });
+          } else if (elem.kind === 'mcpServersStarting') {
+            // optionally show
+          } else if (elem.value !== undefined) {
+            const text = typeof elem.value === 'string' ? elem.value : JSON.stringify(elem.value);
+            if (text.trim()) responseElements.push({ type: 'text', text });
+          }
+        }
+      }
+
+      // Consolidate adjacent text elements
+      const consolidated = [];
+      let textBuffer = '';
+      for (const el of responseElements) {
+        if (el.type === 'text') {
+          textBuffer += el.text;
+        } else {
+          if (textBuffer.trim()) { consolidated.push({ type: 'text', text: textBuffer }); textBuffer = '' }
+          consolidated.push(el);
+        }
+      }
+      if (textBuffer.trim()) consolidated.push({ type: 'text', text: textBuffer });
+
+      return {
+        requestId: req.requestId || '',
+        timestamp: req.timestamp || null,
+        model: req.modelId || '',
+        userMessage,
+        userContext,
+        response: consolidated,
+        timings: req.result?.timings || {},
+        completedAt: req.modelState?.completedAt || null,
+        agent: req.agent?.fullName || req.agent?.name || '',
+        agentId: req.agent?.id || '',
+        contentReferences: req.contentReferences || [],
+        codeCitations: req.codeCitations || [],
+        followups: req.followups || []
+      };
+    },
+
+    /* ─── Chat Session Metadata Only (for lazy loading) ─── */
+    chatSessionMeta(text) {
+      const firstLine = text.split('\n', 1)[0];
+      if (!firstLine) return null;
+      try {
+        const entry = JSON.parse(firstLine);
+        if (entry.kind !== 0) return null;
+        const v = entry.v;
+        // Also scan for customTitle in subsequent lines (fast scan)
+        let title = v.customTitle || '';
+        if (!title) {
+          const titleMatch = text.match(/"customTitle"\s*,\s*"v"\s*:\s*"([^"]+)"/);
+          if (titleMatch) title = titleMatch[1];
+        }
+        return {
+          sessionId: v.sessionId || '',
+          title: title || 'Untitled Session',
+          creationDate: v.creationDate || null,
+          model: v.inputState?.selectedModel?.metadata?.name || v.inputState?.selectedModel?.identifier || 'Unknown',
+          requestCount: (v.requests || []).length,
+          lineCount: text.split('\n').filter(l => l.trim()).length
+        };
+      } catch { return null }
+    },
+
+    /* ─── Edit Session ─── */
+    editSession(text) {
+      try {
+        const data = JSON.parse(text);
+        return {
+          version: data.version,
+          checkpoints: data.timeline?.checkpoints || [],
+          currentEpoch: data.timeline?.currentEpoch || 0,
+          operations: data.timeline?.operations || [],
+          fileBaselines: data.timeline?.fileBaselines || [],
+          initialFiles: data.initialFileContents || [],
+          snapshot: data.recentSnapshot || null
+        };
+      } catch { return null }
+    },
+
+    /* ─── SQLite state.vscdb ─── */
+    async stateDb(buffer) {
+      if (typeof initSqlJs === 'undefined') return { error: 'sql.js library not loaded', rows: [] };
+      try {
+        const SQL = await initSqlJs({
+          locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.11.0/${file}`
+        });
+        const db = new SQL.Database(new Uint8Array(buffer));
+        // Get all tables
+        const tables = db.exec("SELECT name FROM sqlite_master WHERE type='table'");
+        const result = { tables: [], rows: [] };
+        if (tables.length > 0) {
+          result.tables = tables[0].values.map(r => r[0]);
+        }
+        // Query ItemTable (primary data store)
+        try {
+          const items = db.exec("SELECT key, value FROM ItemTable ORDER BY key");
+          if (items.length > 0) {
+            result.rows = items[0].values.map(([key, value]) => {
+              let parsed = value;
+              try { parsed = JSON.parse(value) } catch {}
+              return { key, value, parsed, isJson: parsed !== value };
+            });
+          }
+        } catch {}
+        db.close();
+        return result;
+      } catch (e) {
+        return { error: e.message, rows: [] };
+      }
+    }
+  },
+
+  /* ═══════════════════════════════════════════════════════════
+     UI — Rendering
+     ═══════════════════════════════════════════════════════════ */
+  ui: {
+    renderSidebar() {
+      const sb = document.getElementById('sidebar');
+      let html = '';
+
+      // Workspaces section
+      html += `<div class="sidebar-section">
+        <div class="sidebar-section-header" onclick="VSCAP.ui.toggleSection(this)">
+          <span class="chevron">▼</span> Workspaces
+          <span class="count">${VSCAP.data.workspaces.length}</span>
+        </div>
+        <div class="sidebar-section-body">`;
+
+      for (let wi = 0; wi < VSCAP.data.workspaces.length; wi++) {
+        const ws = VSCAP.data.workspaces[wi];
+        const totalItems = ws.chatSessions.length + ws.editSessions.length + ws.artifacts.length + ws.memory.length + (ws.stateDbBuffer ? 1 : 0);
+        if (totalItems === 0 && ws.files.size <= 1) continue; // skip empty workspaces
+        html += `<div class="ws-item" onclick="VSCAP.ui.selectWorkspace(${wi})" data-ws="${wi}" title="${VSCAP._esc(ws.path)}">
+          <span class="ws-icon">📂</span>
+          <span class="ws-name">${VSCAP._esc(ws.name)}</span>
+          <span class="ws-count">${ws.chatSessions.length > 0 ? '💬' + ws.chatSessions.length : ''}</span>
+        </div>`;
+      }
+
+      html += '</div></div>';
+
+      // Global Storage
+      if (VSCAP.data.globalStorage.size > 0) {
+        html += `<div class="sidebar-section">
+          <div class="sidebar-section-header" onclick="VSCAP.ui.toggleSection(this)">
+            <span class="chevron">▼</span> Global Storage
+            <span class="count">${VSCAP.data.globalStorage.size}</span>
+          </div>
+          <div class="sidebar-section-body">
+            <div class="ws-item" onclick="VSCAP.ui.showGlobalStorage()">
+              <span class="ws-icon">🌐</span><span class="ws-name">Browse Global Storage</span>
+            </div>
+          </div>
+        </div>`;
+      }
+
+      // Settings
+      if (VSCAP.data.settingsJson) {
+        html += `<div class="sidebar-section">
+          <div class="sidebar-section-header" onclick="VSCAP.ui.toggleSection(this)">
+            <span class="chevron">▼</span> Settings
+          </div>
+          <div class="sidebar-section-body">
+            <div class="ws-item" onclick="VSCAP.ui.showSettings()">
+              <span class="ws-icon">⚙️</span><span class="ws-name">settings.json</span>
+            </div>
+          </div>
+        </div>`;
+      }
+
+      sb.innerHTML = html;
+    },
+
+    toggleSection(header) {
+      header.classList.toggle('collapsed');
+      const body = header.nextElementSibling;
+      if (body) body.classList.toggle('hidden');
+    },
+
+    selectWorkspace(idx) {
+      VSCAP._activeWs = idx;
+      // Highlight in sidebar
+      document.querySelectorAll('.ws-item').forEach(el => el.classList.remove('active'));
+      const item = document.querySelector(`.ws-item[data-ws="${idx}"]`);
+      if (item) item.classList.add('active');
+
+      const ws = VSCAP.data.workspaces[idx];
+      const content = document.getElementById('content');
+      document.getElementById('welcomePane')?.classList.add('hidden');
+
+      // Build tab bar
+      const tabs = [];
+      if (ws.chatSessions.length > 0) tabs.push({ id: 'chat', label: `💬 Chat Sessions (${ws.chatSessions.length})` });
+      if (ws.editSessions.length > 0) tabs.push({ id: 'edit', label: `✏️ Edit Sessions (${ws.editSessions.length})` });
+      if (ws.artifacts.length > 0 || ws.memory.length > 0) tabs.push({ id: 'artifacts', label: `🤖 Copilot Data (${ws.artifacts.length + ws.memory.length})` });
+      if (ws.stateDbBuffer) tabs.push({ id: 'statedb', label: '💾 Workspace State' });
+      tabs.push({ id: 'raw', label: `📄 Raw Files (${ws.files.size})` });
+
+      let html = `<div class="tab-bar" id="tabBar">`;
+      for (const t of tabs) {
+        html += `<div class="tab${t.id === (tabs[0]?.id) ? ' active' : ''}" data-tab="${t.id}" onclick="VSCAP.ui.switchTab('${t.id}')">${t.label}</div>`;
+      }
+      html += `</div><div class="tab-content" id="tabContent"></div>`;
+      content.innerHTML = html;
+
+      VSCAP._activeTab = tabs[0]?.id;
+      VSCAP.ui.switchTab(tabs[0]?.id);
+    },
+
+    switchTab(tabId) {
+      if (!tabId) return;
+      VSCAP._activeTab = tabId;
+      document.querySelectorAll('#tabBar .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+      const ws = VSCAP.data.workspaces[VSCAP._activeWs];
+      const container = document.getElementById('tabContent');
+
+      switch (tabId) {
+        case 'chat': VSCAP.ui.renderChatList(ws, container); break;
+        case 'edit': VSCAP.ui.renderEditSessions(ws, container); break;
+        case 'artifacts': VSCAP.ui.renderArtifacts(ws, container); break;
+        case 'statedb': VSCAP.ui.renderStateDb(ws, container); break;
+        case 'raw': VSCAP.ui.renderRawFiles(ws, container); break;
+      }
+    },
+
+    /* ─── Chat Session List ─── */
+    renderChatList(ws, container) {
+      let html = '<div class="session-list">';
+      const metas = [];
+
+      for (let i = 0; i < ws.chatSessions.length; i++) {
+        const relPath = ws.chatSessions[i];
+        const fileData = ws.files.get(relPath);
+        if (!fileData) continue;
+        const text = new TextDecoder().decode(fileData.data);
+        const meta = VSCAP.parse.chatSessionMeta(text);
+        if (!meta) continue;
+        metas.push({ idx: i, meta, relPath, text });
+      }
+
+      // Sort by creation date descending
+      metas.sort((a, b) => (b.meta.creationDate || 0) - (a.meta.creationDate || 0));
+
+      // Apply date filter
+      const dateFrom = document.getElementById('dateFrom').value;
+      const dateTo = document.getElementById('dateTo').value;
+      const filtered = metas.filter(m => {
+        if (!m.meta.creationDate) return true;
+        const d = new Date(m.meta.creationDate);
+        if (dateFrom && d < new Date(dateFrom)) return false;
+        if (dateTo && d > new Date(dateTo + 'T23:59:59')) return false;
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        html += '<div style="color:var(--text-muted);padding:20px;text-align:center">No chat sessions found</div>';
+      }
+
+      for (const m of filtered) {
+        html += `<div class="session-card" onclick="VSCAP.ui.openSession(${VSCAP._activeWs}, ${m.idx})">
+          <div class="session-title">${VSCAP._esc(m.meta.title)}</div>
+          <div class="session-meta">
+            <span>📅 ${VSCAP._formatDate(m.meta.creationDate)}</span>
+            <span>🤖 ${VSCAP._esc(m.meta.model)}</span>
+            <span>💬 ${m.meta.requestCount || '?'} exchanges</span>
+            <span>📝 ${m.meta.lineCount} mutations</span>
+          </div>
+        </div>`;
+      }
+      html += '</div>';
+      container.innerHTML = html;
+    },
+
+    /* ─── Open Single Chat Session (lazy parse) ─── */
+    openSession(wsIdx, sessionIdx) {
+      const ws = VSCAP.data.workspaces[wsIdx];
+      const relPath = ws.chatSessions[sessionIdx];
+      const fileData = ws.files.get(relPath);
+      if (!fileData) return;
+
+      const cacheKey = wsIdx + ':' + relPath;
+      let session = VSCAP.data.parsedSessions.get(cacheKey);
+      if (!session) {
+        const text = new TextDecoder().decode(fileData.data);
+        session = VSCAP.parse.chatSession(text);
+        if (!session) return;
+        VSCAP.data.parsedSessions.set(cacheKey, session);
+      }
+
+      const container = document.getElementById('tabContent');
+      let html = `<div class="conv-header">
+        <span class="conv-back" onclick="VSCAP.ui.switchTab('chat')">← </span>
+        <h2>${VSCAP._esc(session.title)}</h2>
+        <span class="badge badge-blue">${VSCAP._esc(session.model)}</span>
+        <span class="badge badge-green">${VSCAP._esc(session.mode)}</span>
+      </div>
+      <div class="conv-meta">
+        <span>📅 Created: ${VSCAP._formatDate(session.creationDate)}</span>
+        <span>🔑 Session: <code>${VSCAP._esc(session.sessionId)}</code></span>
+        <span>📝 ${session.rawLineCount} JSONL lines</span>
+        <span>💬 ${session.requests.length} exchanges</span>
+      </div>
+      <div class="conv-messages">`;
+
+      for (let ri = 0; ri < session.requests.length; ri++) {
+        const req = session.requests[ri];
+        if (!req) continue;
+
+        // User message
+        if (req.userMessage) {
+          html += `<div class="msg msg-user">
+            <div class="msg-header">
+              <span class="sender">👤 User</span>
+              <span>${VSCAP._formatDate(req.timestamp)}</span>
+            </div>
+            <div class="msg-body">${VSCAP._renderMd(req.userMessage)}</div>`;
+          if (req.userContext) {
+            html += `<div class="msg-context"><details>
+              <summary>📋 View full context sent to model</summary>
+              <pre>${VSCAP._esc(req.userContext)}</pre>
+            </details></div>`;
+          }
+          html += `<div class="msg-footer">
+            ${req.model ? `<span>Model: ${VSCAP._esc(req.model)}</span>` : ''}
+            ${req.agent ? `<span>Agent: ${VSCAP._esc(req.agent)}</span>` : ''}
+            ${req.requestId ? `<span>ID: ${VSCAP._esc(req.requestId.substring(0, 20))}…</span>` : ''}
+          </div></div>`;
+        }
+
+        // AI response
+        if (req.response.length > 0) {
+          html += `<div class="msg msg-ai">
+            <div class="msg-header">
+              <span class="sender">🤖 ${VSCAP._esc(session.responder || 'AI')}</span>
+              ${req.completedAt ? `<span>${VSCAP._formatDate(req.completedAt)}</span>` : ''}
+            </div>
+            <div class="msg-body">`;
+
+          for (const elem of req.response) {
+            switch (elem.type) {
+              case 'text':
+                html += VSCAP._renderMd(elem.text);
+                break;
+              case 'thinking':
+                html += `<details class="thinking-block">
+                  <summary>💭 ${VSCAP._esc(elem.title || 'Thinking...')}</summary>
+                  <div class="thinking-content">${VSCAP._esc(elem.text)}</div>
+                </details>`;
+                break;
+              case 'tool':
+                html += `<div class="tool-call">
+                  <span class="tool-icon">🔧</span>
+                  <span class="tool-msg">${VSCAP._esc(elem.message)}</span>
+                  ${elem.source ? `<span class="tool-source">${VSCAP._esc(elem.source)}</span>` : ''}
+                </div>`;
+                break;
+            }
+          }
+
+          html += '</div>';
+
+          // Timing footer
+          const parts = [];
+          if (req.timings.firstProgress) parts.push(`First response: ${(req.timings.firstProgress / 1000).toFixed(1)}s`);
+          if (req.timings.totalElapsed) parts.push(`Total: ${(req.timings.totalElapsed / 1000).toFixed(1)}s`);
+          if (req.contentReferences.length > 0) parts.push(`${req.contentReferences.length} references`);
+          if (req.codeCitations.length > 0) parts.push(`${req.codeCitations.length} citations`);
+          if (parts.length > 0) {
+            html += `<div class="msg-footer">${parts.map(p => '<span>' + p + '</span>').join('')}</div>`;
+          }
+
+          html += '</div>';
+        }
+      }
+
+      html += '</div>';
+      container.innerHTML = html;
+    },
+
+    /* ─── Edit Sessions ─── */
+    renderEditSessions(ws, container) {
+      let html = '<h3 style="margin-bottom:16px">Chat Editing Sessions</h3>';
+
+      for (const relPath of ws.editSessions) {
+        const fileData = ws.files.get(relPath);
+        if (!fileData) continue;
+        const session = VSCAP.parse.editSession(new TextDecoder().decode(fileData.data));
+        if (!session) continue;
+
+        const uuid = relPath.split('/')[1] || 'Unknown';
+        html += `<div class="edit-card">
+          <h4>Session: <code>${VSCAP._esc(uuid)}</code></h4>
+          <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">
+            Version: ${session.version} | Epoch: ${session.currentEpoch} | Checkpoints: ${session.checkpoints.length}
+          </div>`;
+
+        if (session.checkpoints.length > 0) {
+          html += '<div class="timeline">';
+          for (const cp of session.checkpoints) {
+            html += `<div class="timeline-item">
+              <strong>${VSCAP._esc(cp.label || 'Checkpoint')}</strong>
+              <div style="font-size:12px;color:var(--text-secondary)">${VSCAP._esc(cp.description || '')} (Epoch ${cp.epoch})</div>
+            </div>`;
+          }
+          html += '</div>';
+        }
+
+        if (session.operations.length > 0) {
+          html += `<details style="margin-top:8px"><summary style="cursor:pointer;font-size:12px;color:var(--info)">
+            ${session.operations.length} operations</summary>
+            <pre>${VSCAP._esc(JSON.stringify(session.operations, null, 2))}</pre>
+          </details>`;
+        }
+
+        html += '</div>';
+      }
+
+      if (ws.editSessions.length === 0) {
+        html += '<div style="color:var(--text-muted);text-align:center;padding:40px">No edit sessions found</div>';
+      }
+      container.innerHTML = html;
+    },
+
+    /* ─── Copilot Artifacts & Memory ─── */
+    renderArtifacts(ws, container) {
+      let html = '<h3 style="margin-bottom:16px">GitHub Copilot Chat Data</h3>';
+
+      // Artifacts (chat-session-resources)
+      if (ws.artifacts.length > 0) {
+        html += `<h4 style="margin-bottom:8px;color:var(--info)">Chat Session Resources (${ws.artifacts.length})</h4>`;
+        for (const relPath of ws.artifacts) {
+          const fileData = ws.files.get(relPath);
+          if (!fileData) continue;
+          let content;
+          try { content = new TextDecoder().decode(fileData.data) } catch { content = '[Binary data]' }
+          html += `<div class="artifact-card">
+            <div class="artifact-path">${VSCAP._esc(relPath)}</div>
+            <div class="artifact-content"><pre>${VSCAP._esc(content.substring(0, 5000))}${content.length > 5000 ? '\n\n... [truncated]' : ''}</pre></div>
+          </div>`;
+        }
+      }
+
+      // Memory files
+      if (ws.memory.length > 0) {
+        html += `<h4 style="margin:20px 0 8px;color:var(--success)">Agent Memory Files (${ws.memory.length})</h4>`;
+        for (const relPath of ws.memory) {
+          const fileData = ws.files.get(relPath);
+          if (!fileData) continue;
+          let content;
+          try { content = new TextDecoder().decode(fileData.data) } catch { content = '[Binary data]' }
+          const isMarkdown = relPath.endsWith('.md');
+          html += `<div class="artifact-card">
+            <h4>${VSCAP._esc(relPath.split('/').pop())}</h4>
+            <div class="artifact-path">${VSCAP._esc(relPath)}</div>
+            <div class="artifact-content">${isMarkdown ? VSCAP._renderMd(content) : '<pre>' + VSCAP._esc(content) + '</pre>'}</div>
+          </div>`;
+        }
+      }
+
+      if (ws.artifacts.length === 0 && ws.memory.length === 0) {
+        html += '<div style="color:var(--text-muted);text-align:center;padding:40px">No Copilot data found</div>';
+      }
+      container.innerHTML = html;
+    },
+
+    /* ─── SQLite State DB ─── */
+    async renderStateDb(ws, container) {
+      container.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-secondary)">Loading SQLite database...</div>';
+
+      const result = await VSCAP.parse.stateDb(ws.stateDbBuffer);
+      if (result.error) {
+        container.innerHTML = `<div style="padding:20px"><div class="badge badge-red">${VSCAP._esc(result.error)}</div>
+          <p style="margin-top:12px;color:var(--text-secondary)">The sql.js WASM library is required to parse state.vscdb files.
+          Ensure internet access for CDN loading, or use the air-gapped bundle.</p></div>`;
+        return;
+      }
+
+      let html = `<h3 style="margin-bottom:8px">Workspace State Database</h3>
+        <div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">
+          Tables: ${result.tables.join(', ')} | Rows: ${result.rows.length}
+        </div>
+        <div class="state-filter">
+          <input type="text" id="stateFilterInput" placeholder="Filter keys..." style="width:300px"
+            oninput="VSCAP.ui.filterStateTable(this.value)">
+        </div>
+        <div style="max-height:calc(100vh - 250px);overflow:auto">
+        <table class="state-table" id="stateTable">
+          <thead><tr><th style="width:35%">Key</th><th>Value</th></tr></thead>
+          <tbody>`;
+
+      for (const row of result.rows) {
+        const valDisplay = row.isJson
+          ? '<details><summary style="cursor:pointer;color:var(--info)">JSON Object</summary><pre>' + VSCAP._esc(JSON.stringify(row.parsed, null, 2)).substring(0, 2000) + '</pre></details>'
+          : '<span>' + VSCAP._esc(String(row.value).substring(0, 500)) + '</span>';
+        html += `<tr data-key="${VSCAP._esc(row.key)}">
+          <td class="key-col" title="${VSCAP._esc(row.key)}">${VSCAP._esc(row.key)}</td>
+          <td class="val-col">${valDisplay}</td>
+        </tr>`;
+      }
+
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
+    },
+
+    filterStateTable(query) {
+      const rows = document.querySelectorAll('#stateTable tbody tr');
+      const q = query.toLowerCase();
+      rows.forEach(row => {
+        row.style.display = row.dataset.key.toLowerCase().includes(q) ? '' : 'none';
+      });
+    },
+
+    /* ─── Raw Files Browser ─── */
+    renderRawFiles(ws, container) {
+      // Build tree structure
+      const tree = {};
+      for (const [relPath] of ws.files) {
+        const parts = relPath.split('/');
+        let node = tree;
+        for (let i = 0; i < parts.length - 1; i++) {
+          if (!node[parts[i]]) node[parts[i]] = {};
+          node = node[parts[i]];
+        }
+        node[parts[parts.length - 1]] = relPath; // leaf = full path
+      }
+
+      function renderTree(node, depth = 0) {
+        let html = '';
+        const entries = Object.entries(node).sort(([a, av], [b, bv]) => {
+          const aIsDir = typeof av === 'object';
+          const bIsDir = typeof bv === 'object';
+          if (aIsDir !== bIsDir) return aIsDir ? -1 : 1;
+          return a.localeCompare(b);
+        });
+        for (const [name, value] of entries) {
+          if (typeof value === 'object') {
+            html += `<details><summary class="file-tree-item folder" style="padding-left:${depth * 18}px">📁 ${VSCAP._esc(name)}</summary>
+              <div class="file-tree-children">${renderTree(value, depth + 1)}</div></details>`;
+          } else {
+            const size = ws.files.get(value)?.size || 0;
+            html += `<div class="file-tree-item" style="padding-left:${depth * 18}px"
+              onclick="VSCAP.ui.previewFile(${VSCAP._activeWs}, '${VSCAP._esc(value)}')">
+              📄 ${VSCAP._esc(name)} <span style="color:var(--text-muted);font-size:11px;margin-left:auto">${VSCAP._formatSize(size)}</span>
+            </div>`;
+          }
+        }
+        return html;
+      }
+
+      container.innerHTML = `<h3 style="margin-bottom:12px">File Browser</h3>
+        <div class="file-tree">${renderTree(tree)}</div>
+        <div id="filePreview"></div>`;
+    },
+
+    previewFile(wsIdx, relPath) {
+      const ws = VSCAP.data.workspaces[wsIdx];
+      const fileData = ws.files.get(relPath);
+      if (!fileData) return;
+      const preview = document.getElementById('filePreview');
+      let content;
+      try {
+        content = new TextDecoder().decode(fileData.data);
+        // Validate it's actually text
+        if (content.includes('\0')) throw new Error('Binary');
+      } catch {
+        content = '[Binary file — ' + VSCAP._formatSize(fileData.size) + ']';
+      }
+      const ext = relPath.split('.').pop().toLowerCase();
+      const isJson = ext === 'json' || ext === 'jsonl';
+      let displayContent = content;
+      if (isJson && content.length < 50000) {
+        try { displayContent = JSON.stringify(JSON.parse(content), null, 2) } catch {}
+      }
+      preview.innerHTML = `<div class="file-preview">
+        <div style="margin-bottom:8px;font-size:12px;color:var(--text-muted)">${VSCAP._esc(relPath)} — ${VSCAP._formatSize(fileData.size)}</div>
+        <pre>${VSCAP._esc(displayContent.substring(0, 50000))}${displayContent.length > 50000 ? '\n\n... [truncated]' : ''}</pre>
+      </div>`;
+      preview.scrollIntoView({ behavior: 'smooth' });
+    },
+
+    /* ─── Settings View ─── */
+    showSettings() {
+      VSCAP._activeWs = null;
+      document.querySelectorAll('.ws-item').forEach(el => el.classList.remove('active'));
+      const content = document.getElementById('content');
+      document.getElementById('welcomePane')?.classList.add('hidden');
+
+      const settings = VSCAP.data.settingsJson;
+      if (!settings) { content.innerHTML = '<div class="content-welcome"><p>No settings.json found</p></div>'; return }
+
+      // Group settings by prefix
+      const groups = {};
+      for (const [key, value] of Object.entries(settings)) {
+        const group = key.split('.')[0] || 'other';
+        if (!groups[group]) groups[group] = [];
+        groups[group].push({ key, value });
+      }
+
+      let html = '<div style="padding:20px"><h3 style="margin-bottom:16px">⚙️ VS Code User Settings</h3><div class="settings-tree">';
+      for (const [group, items] of Object.entries(groups).sort()) {
+        html += `<details class="settings-group"><summary>${VSCAP._esc(group)} (${items.length})</summary>`;
+        for (const item of items) {
+          const valStr = typeof item.value === 'object' ? JSON.stringify(item.value, null, 2) : String(item.value);
+          html += `<div class="settings-pair">
+            <div class="settings-key">${VSCAP._esc(item.key)}</div>
+            <div class="settings-val">${valStr.length > 200 ? '<pre>' + VSCAP._esc(valStr) + '</pre>' : VSCAP._esc(valStr)}</div>
+          </div>`;
+        }
+        html += '</details>';
+      }
+      html += '</div></div>';
+      content.innerHTML = html;
+    },
+
+    /* ─── Global Storage View ─── */
+    showGlobalStorage() {
+      VSCAP._activeWs = null;
+      document.querySelectorAll('.ws-item').forEach(el => el.classList.remove('active'));
+      const content = document.getElementById('content');
+      document.getElementById('welcomePane')?.classList.add('hidden');
+
+      let html = '<div style="padding:20px"><h3 style="margin-bottom:16px">🌐 Global Storage</h3>';
+
+      for (const [path, fileData] of VSCAP.data.globalStorage) {
+        let preview = '';
+        try {
+          const text = new TextDecoder().decode(fileData.data);
+          if (!text.includes('\0')) preview = text.substring(0, 500);
+          else preview = '[Binary — ' + VSCAP._formatSize(fileData.size) + ']';
+        } catch { preview = '[Binary — ' + VSCAP._formatSize(fileData.size) + ']'; }
+
+        html += `<div class="artifact-card">
+          <div class="artifact-path">${VSCAP._esc(path)}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">${VSCAP._formatSize(fileData.size)}</div>
+          <pre style="max-height:200px;overflow:auto;font-size:11px">${VSCAP._esc(preview)}</pre>
+        </div>`;
+      }
+
+      html += '</div>';
+      content.innerHTML = html;
+    },
+
+    /* ─── Theme Toggle ─── */
+    toggleTheme() {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      document.getElementById('themeBtn').textContent = next === 'dark' ? '🌙' : '☀️';
+    },
+
+    /* ─── Date Filter ─── */
+    applyDateFilter() {
+      if (VSCAP._activeWs !== null && VSCAP._activeTab === 'chat') {
+        const ws = VSCAP.data.workspaces[VSCAP._activeWs];
+        VSCAP.ui.renderChatList(ws, document.getElementById('tabContent'));
+      }
+    },
+
+    /* ─── Progress ─── */
+    showProgress(pct, msg) {
+      const overlay = document.getElementById('progress-overlay');
+      overlay.classList.remove('hidden');
+      document.getElementById('progressFill').style.width = pct + '%';
+      document.getElementById('progress-msg').textContent = msg || '';
+    },
+    hideProgress() {
+      document.getElementById('progress-overlay').classList.add('hidden');
+    },
+
+    /* ─── Export Modal ─── */
+    showExportModal() {
+      // Remove existing modal
+      document.getElementById('exportModal')?.remove();
+
+      const modal = document.createElement('div');
+      modal.id = 'exportModal';
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `<div class="modal">
+        <h3>📤 Export Data</h3>
+        <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px">Export parsed evidence data for reporting</p>
+        <div>
+          <label><input type="radio" name="exportScope" value="all" checked> All workspaces &amp; sessions</label>
+          <label><input type="radio" name="exportScope" value="workspace"> Current workspace only</label>
+          <label><input type="radio" name="exportScope" value="session"> Current session only</label>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-ghost" onclick="document.getElementById('exportModal').remove()">Cancel</button>
+          <button class="btn-primary" onclick="VSCAP.export.toJSON()">Export JSON</button>
+          <button class="btn-primary" onclick="VSCAP.export.toCSV()">Export CSV</button>
+        </div>
+      </div>`;
+      modal.addEventListener('click', e => { if (e.target === modal) modal.remove() });
+      document.body.appendChild(modal);
+    }
+  },
+
+  /* ═══════════════════════════════════════════════════════════
+     SEARCH
+     ═══════════════════════════════════════════════════════════ */
+  search: {
+    run(query) {
+      if (!query || query.length < 2) {
+        // Restore normal view
+        if (VSCAP._activeWs !== null) VSCAP.ui.switchTab(VSCAP._activeTab);
+        else { document.getElementById('welcomePane')?.classList.remove('hidden') }
+        return;
+      }
+
+      const q = query.toLowerCase();
+      const results = [];
+
+      for (let wi = 0; wi < VSCAP.data.workspaces.length; wi++) {
+        const ws = VSCAP.data.workspaces[wi];
+
+        // Search workspace name
+        if (ws.name.toLowerCase().includes(q) || ws.path.toLowerCase().includes(q)) {
+          results.push({ type: 'workspace', wsIdx: wi, title: ws.name, context: ws.path });
+        }
+
+        // Search chat sessions
+        for (let si = 0; si < ws.chatSessions.length; si++) {
+          const relPath = ws.chatSessions[si];
+          const fileData = ws.files.get(relPath);
+          if (!fileData) continue;
+          const text = new TextDecoder().decode(fileData.data);
+
+          // Quick text search in raw JSONL
+          if (text.toLowerCase().includes(q)) {
+            const meta = VSCAP.parse.chatSessionMeta(text);
+            // Find context around match
+            const idx = text.toLowerCase().indexOf(q);
+            const start = Math.max(0, idx - 60);
+            const end = Math.min(text.length, idx + query.length + 60);
+            let snippet = text.substring(start, end).replace(/[{}"\\]/g, ' ').replace(/\s+/g, ' ');
+            // Highlight
+            const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            snippet = VSCAP._esc(snippet).replace(re, '<mark>$1</mark>');
+
+            results.push({
+              type: 'session', wsIdx: wi, sessionIdx: si,
+              title: (meta?.title || 'Session') + ' — ' + ws.name,
+              context: snippet
+            });
+          }
+
+          if (results.length >= 50) break;
+        }
+        if (results.length >= 50) break;
+      }
+
+      // Display results
+      const content = document.getElementById('content');
+      document.getElementById('welcomePane')?.classList.add('hidden');
+      let html = `<div class="search-results">
+        <h3>Search Results for "${VSCAP._esc(query)}" (${results.length}${results.length >= 50 ? '+' : ''})</h3>`;
+
+      for (const r of results) {
+        const onclick = r.type === 'session'
+          ? `VSCAP.ui.selectWorkspace(${r.wsIdx}); setTimeout(()=>VSCAP.ui.openSession(${r.wsIdx},${r.sessionIdx}),100)`
+          : `VSCAP.ui.selectWorkspace(${r.wsIdx})`;
+        html += `<div class="search-result" onclick="${onclick}">
+          <div class="sr-title">${r.type === 'session' ? '💬' : '📂'} ${r.title}</div>
+          <div class="sr-context">${r.context}</div>
+        </div>`;
+      }
+
+      if (results.length === 0) {
+        html += '<div style="color:var(--text-muted);padding:20px;text-align:center">No results found</div>';
+      }
+
+      html += '</div>';
+      content.innerHTML = html;
+    }
+  },
+
+  /* ═══════════════════════════════════════════════════════════
+     EXPORT — CSV & JSON
+     ═══════════════════════════════════════════════════════════ */
+  export: {
+    _getScope() {
+      const radio = document.querySelector('input[name="exportScope"]:checked');
+      return radio ? radio.value : 'all';
+    },
+
+    _getSessions() {
+      const scope = VSCAP.export._getScope();
+      const sessions = [];
+
+      if (scope === 'session' && VSCAP._activeWs !== null) {
+        // Get current session from view (if one is open)
+        for (const [key, session] of VSCAP.data.parsedSessions) {
+          if (key.startsWith(VSCAP._activeWs + ':')) {
+            sessions.push({ ws: VSCAP.data.workspaces[VSCAP._activeWs], session });
+            break;
+          }
+        }
+      } else {
+        const workspaces = scope === 'workspace' && VSCAP._activeWs !== null
+          ? [VSCAP.data.workspaces[VSCAP._activeWs]]
+          : VSCAP.data.workspaces;
+
+        for (const ws of workspaces) {
+          for (const relPath of ws.chatSessions) {
+            const fileData = ws.files.get(relPath);
+            if (!fileData) continue;
+            const cacheKey = VSCAP.data.workspaces.indexOf(ws) + ':' + relPath;
+            let session = VSCAP.data.parsedSessions.get(cacheKey);
+            if (!session) {
+              const text = new TextDecoder().decode(fileData.data);
+              session = VSCAP.parse.chatSession(text);
+              if (session) VSCAP.data.parsedSessions.set(cacheKey, session);
+            }
+            if (session) sessions.push({ ws, session });
+          }
+        }
+      }
+      return sessions;
+    },
+
+    toJSON() {
+      const sessions = VSCAP.export._getSessions();
+      const data = {
+        exportDate: new Date().toISOString(),
+        tool: 'VS-CAP Viewer',
+        version: '1.0',
+        workspaceCount: VSCAP.data.workspaces.length,
+        sessions: sessions.map(({ ws, session }) => ({
+          workspace: ws.name,
+          workspacePath: ws.path,
+          ...session,
+          requests: session.requests.filter(Boolean)
+        }))
+      };
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      VSCAP.export._download(blob, `vs-cap-export-${Date.now()}.json`);
+      document.getElementById('exportModal')?.remove();
+    },
+
+    toCSV() {
+      const sessions = VSCAP.export._getSessions();
+      const rows = [['Workspace', 'Workspace Path', 'Session ID', 'Session Title', 'Creation Date',
+        'Request #', 'Timestamp', 'Model', 'Agent', 'User Message', 'AI Response (Text)', 'Duration (s)',
+        'Tool Calls', 'Thinking Blocks'].join(',')];
+
+      for (const { ws, session } of sessions) {
+        for (let ri = 0; ri < session.requests.length; ri++) {
+          const req = session.requests[ri];
+          if (!req) continue;
+          const responseText = req.response.filter(e => e.type === 'text').map(e => e.text).join(' ');
+          const toolCount = req.response.filter(e => e.type === 'tool').length;
+          const thinkingCount = req.response.filter(e => e.type === 'thinking').length;
+          const duration = req.timings.totalElapsed ? (req.timings.totalElapsed / 1000).toFixed(1) : '';
+
+          rows.push([
+            VSCAP.export._csvEsc(ws.name),
+            VSCAP.export._csvEsc(ws.path),
+            VSCAP.export._csvEsc(session.sessionId),
+            VSCAP.export._csvEsc(session.title),
+            VSCAP.export._csvEsc(VSCAP._formatDate(session.creationDate)),
+            ri + 1,
+            VSCAP.export._csvEsc(VSCAP._formatDate(req.timestamp)),
+            VSCAP.export._csvEsc(req.model),
+            VSCAP.export._csvEsc(req.agent),
+            VSCAP.export._csvEsc(req.userMessage),
+            VSCAP.export._csvEsc(responseText.substring(0, 5000)),
+            duration,
+            toolCount,
+            thinkingCount
+          ].join(','));
+        }
+      }
+
+      const blob = new Blob(['\uFEFF' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+      VSCAP.export._download(blob, `vs-cap-export-${Date.now()}.csv`);
+      document.getElementById('exportModal')?.remove();
+    },
+
+    _csvEsc(val) {
+      if (val === null || val === undefined) return '""';
+      const s = String(val).replace(/"/g, '""');
+      return '"' + s + '"';
+    },
+
+    _download(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  },
+
+  /* ═══════════════════════════════════════════════════════════
+     CLEAR — Remove all data from memory
+     ═══════════════════════════════════════════════════════════ */
+  clearAll() {
+    if (!confirm('Clear all loaded evidence data? This cannot be undone.')) return;
+    VSCAP.data.workspaces = [];
+    VSCAP.data.globalStorage = new Map();
+    VSCAP.data.settingsJson = null;
+    VSCAP.data.allFiles = new Map();
+    VSCAP.data.totalSize = 0;
+    VSCAP.data.parsedSessions = new Map();
+    VSCAP._activeWs = null;
+    VSCAP._activeTab = null;
+
+    document.getElementById('viewer').classList.add('hidden');
+    document.getElementById('landing').classList.remove('hidden');
+    document.getElementById('searchInput').value = '';
+    document.getElementById('dateFrom').value = '';
+    document.getElementById('dateTo').value = '';
+  }
+};
+
+/* ─── Bootstrap ─── */
+document.addEventListener('DOMContentLoaded', () => VSCAP.init());
+</script>
+</body>
+</html>

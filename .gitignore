@@ -1,0 +1,5 @@
+VSCode_WorkspaceStorage.tkape
+dist/
+_airgap_temp/
+.zip
+.json

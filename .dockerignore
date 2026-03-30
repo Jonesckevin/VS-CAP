@@ -1,0 +1,24 @@
+# Original standalone files (not needed in container)
+vs-cap-viewer.html
+vs-cap-docs.html
+VSCode_WorkspaceStorage.tkape
+bundle-airgap.ps1
+
+# Git
+.git
+.gitignore
+.zip
+
+# IDE
+.vscode
+*.code-workspace
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Docs
+README.md
+LICENSE
+*.md
+!app/**

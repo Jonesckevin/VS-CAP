@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VS-CAP — VSCode Session Chat Acquisition &amp; Parsing</title>
+<link rel="stylesheet" href="css/viewer.css">
+</head>
+<body>
+
+<!-- ═══════════════════════ LANDING PAGE ═══════════════════════ -->
+<div id="landing">
+  <div class="logo">VS-<span>CAP</span></div>
+  <div class="tagline">VSCode Session Chat Acquisition &amp; Parsing — Forensic Viewer</div>
+  <div style="margin-bottom:12px"><a href="docs.html" style="color:var(--info);font-size:14px">📖 Documentation</a></div>
+  <div class="drop-zone" id="dropZone">
+    <h3>Load Collected Evidence</h3>
+    <p>Drag &amp; drop a ZIP file or select a folder of collected VS Code workspace data</p>
+    <div class="actions">
+      <button class="btn-primary" onclick="document.getElementById('zipInput').click()">📦 Open ZIP File</button>
+      <button class="btn-ghost" onclick="document.getElementById('folderInput').click()">📂 Select Folder</button>
+    </div>
+    <input type="file" id="zipInput" accept=".zip" class="hidden">
+    <input type="file" id="folderInput" webkitdirectory directory multiple class="hidden">
+  </div>
+  <div class="landing-info">
+    <strong>VS-CAP</strong> parses VS Code workspaceStorage collected via KAPE (or manually).
+    Supports chat sessions (JSONL), edit sessions, GitHub Copilot artifacts, workspace state (SQLite), and settings.
+    All data is processed in-browser — nothing is uploaded or stored. Data clears on page refresh.
+  </div>
+</div>
+
+<!-- ═══════════════════════ PROGRESS OVERLAY ═══════════════════ -->
+<div id="progress-overlay" class="hidden">
+  <div id="progress-box">
+    <h3>Processing Evidence...</h3>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div id="progress-msg">Initializing...</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ MAIN VIEWER ═══════════════════════ -->
+<div id="viewer" class="hidden">
+  <div id="header">
+    <div class="brand">VS-<span>CAP</span></div>
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="Search sessions, messages, artifacts...">
+    </div>
+    <div class="toolbar">
+      <label>From <input type="date" id="dateFrom" style="width:130px"></label>
+      <label>To <input type="date" id="dateTo" style="width:130px"></label>
+      <button class="btn-ghost" onclick="VSCAP.ui.showExportModal()" title="Export data">📤 Export</button>
+      <button class="btn-ghost" onclick="window.open('docs.html','_blank')" title="Documentation">📖 Docs</button>
+      <button class="btn-ghost" onclick="VSCAP.ui.toggleTheme()" id="themeBtn" title="Toggle theme">🌙</button>
+      <button class="btn-danger" onclick="VSCAP.clearAll()" title="Clear all loaded data">✕ Clear</button>
+    </div>
+  </div>
+
+  <div id="app">
+    <aside id="sidebar"></aside>
+    <div id="content">
+      <div class="content-welcome" id="welcomePane">
+        <h2>Select a workspace from the sidebar</h2>
+        <p>Browse chat sessions, edit history, Copilot artifacts, and workspace state</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="statusbar">
+    <span class="status-item" id="statWorkspaces">📁 0 workspaces</span>
+    <span class="status-item" id="statSessions">💬 0 sessions</span>
+    <span class="status-item" id="statFiles">📄 0 files</span>
+    <span class="status-item" id="statSize">💾 0 B</span>
+    <span class="status-item" style="margin-left:auto" id="statLib">Libraries: checking...</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════ LIBRARIES (local, bundled at build) ═══════════════════ -->
+<script>window._VSCAP_LIB_FAILS = [];</script>
+<script src="lib/jszip.min.js" onerror="window._VSCAP_LIB_FAILS.push('JSZip')"></script>
+<script src="lib/sql-wasm.min.js" onerror="window._VSCAP_LIB_FAILS.push('sql.js')"></script>
+<script src="lib/marked.min.js" onerror="window._VSCAP_LIB_FAILS.push('marked')"></script>
+
+<!-- ═══════════════════════ APPLICATION CODE ═══════════════════ -->
+<script src="js/viewer.js"></script>
+</body>
+</html>
