@@ -21,7 +21,7 @@ RUN wget -q -O jszip.min.js \
       "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
 
 # Stage 2: Serve with nginx
-FROM nginx:1.27-alpine
+FROM nginx:1.29.7-alpine-slim
 
 # Remove default site
 RUN rm -rf /usr/share/nginx/html/*

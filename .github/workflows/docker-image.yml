@@ -17,15 +17,12 @@ jobs:
        with:
          username: ${{ secrets.DOCKER_USERNAME }}
          password: ${{ secrets.DOCKER_PASSWORD }}
-     - name: Extract metadata
-       id: meta
-       uses: docker/metadata-action@v5
-       with:
-         images: jonesckevin/vs-cap
      - name: Build and push image
        uses: docker/build-push-action@v5
        with:
-         context:
+         context: .
          file: ./Dockerfile
          push: true
-         tags: ${{ steps.meta.outputs.tags }}
+         tags: |
+           jonesckevin/vs-cap:main
+           jonesckevin/vs-cap:latest
