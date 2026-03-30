@@ -63,3 +63,12 @@ pre.mermaid svg{max-width:100%;height:auto}
 @media(max-width:768px){
   nav{display:none}main{margin-left:0;padding:20px}
 }
+
+/* ─── Site Footer ─── */
+.site-footer{position:fixed;bottom:0;left:0;right:0;z-index:1000;display:flex;align-items:center;
+  justify-content:center;height:32px;background:var(--bg2,#1e1e1e);border-top:1px solid var(--border,#333);
+  font-size:12px;color:var(--text2,#999);padding:0 16px}
+.footer-title{text-align:center}
+.footer-github{position:absolute;right:16px;color:var(--text2,#999);display:flex;align-items:center;
+  text-decoration:none;transition:color .15s}
+.footer-github:hover{color:var(--text,#fff)}
