@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: vs-cap
     ports:
-      - "8088:8080"
+      - "9005:8080"
     restart: unless-stopped
     read_only: true
     tmpfs:
@@ -14,3 +14,9 @@ services:
       - /run
     security_opt:
       - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+          pids: 512

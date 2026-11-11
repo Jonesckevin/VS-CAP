@@ -5,7 +5,7 @@
 # ─────────────────────────────────────────────────────────────
 
 # Stage 1: Download third-party libraries
-FROM alpine:3.20 AS fetcher
+FROM alpine:3.24 AS fetcher
 RUN apk add --no-cache wget
 WORKDIR /libs
 
@@ -21,7 +21,9 @@ RUN wget -q -O jszip.min.js \
       "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
 
 # Stage 2: Serve with nginx
-FROM nginx:1.29.7-alpine-slim
+FROM nginx:1.31.8-alpine-slim
+
+RUN apk upgrade --no-cache
 
 # Remove default site
 RUN rm -rf /usr/share/nginx/html/*
@@ -38,4 +40,4 @@ COPY --from=fetcher /libs/ /usr/share/nginx/html/lib/
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=3s \
-  CMD wget -q --spider http://localhost:8080/ || exit 1
+  CMD wget -q --spider http://127.0.0.1:8080/ || exit 1
